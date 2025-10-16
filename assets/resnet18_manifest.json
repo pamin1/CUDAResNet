@@ -1,0 +1,395 @@
+{
+  "model": "resnet18",
+  "format": "npz",
+  "dtype": "float32",
+  "tensors": {
+    "conv1.weight": [
+      64,
+      3,
+      7,
+      7
+    ],
+    "bn1.weight": [
+      64
+    ],
+    "bn1.bias": [
+      64
+    ],
+    "bn1.running_mean": [
+      64
+    ],
+    "bn1.running_var": [
+      64
+    ],
+    "bn1.num_batches_tracked": [],
+    "layer1.0.conv1.weight": [
+      64,
+      64,
+      3,
+      3
+    ],
+    "layer1.0.bn1.weight": [
+      64
+    ],
+    "layer1.0.bn1.bias": [
+      64
+    ],
+    "layer1.0.bn1.running_mean": [
+      64
+    ],
+    "layer1.0.bn1.running_var": [
+      64
+    ],
+    "layer1.0.bn1.num_batches_tracked": [],
+    "layer1.0.conv2.weight": [
+      64,
+      64,
+      3,
+      3
+    ],
+    "layer1.0.bn2.weight": [
+      64
+    ],
+    "layer1.0.bn2.bias": [
+      64
+    ],
+    "layer1.0.bn2.running_mean": [
+      64
+    ],
+    "layer1.0.bn2.running_var": [
+      64
+    ],
+    "layer1.0.bn2.num_batches_tracked": [],
+    "layer1.1.conv1.weight": [
+      64,
+      64,
+      3,
+      3
+    ],
+    "layer1.1.bn1.weight": [
+      64
+    ],
+    "layer1.1.bn1.bias": [
+      64
+    ],
+    "layer1.1.bn1.running_mean": [
+      64
+    ],
+    "layer1.1.bn1.running_var": [
+      64
+    ],
+    "layer1.1.bn1.num_batches_tracked": [],
+    "layer1.1.conv2.weight": [
+      64,
+      64,
+      3,
+      3
+    ],
+    "layer1.1.bn2.weight": [
+      64
+    ],
+    "layer1.1.bn2.bias": [
+      64
+    ],
+    "layer1.1.bn2.running_mean": [
+      64
+    ],
+    "layer1.1.bn2.running_var": [
+      64
+    ],
+    "layer1.1.bn2.num_batches_tracked": [],
+    "layer2.0.conv1.weight": [
+      128,
+      64,
+      3,
+      3
+    ],
+    "layer2.0.bn1.weight": [
+      128
+    ],
+    "layer2.0.bn1.bias": [
+      128
+    ],
+    "layer2.0.bn1.running_mean": [
+      128
+    ],
+    "layer2.0.bn1.running_var": [
+      128
+    ],
+    "layer2.0.bn1.num_batches_tracked": [],
+    "layer2.0.conv2.weight": [
+      128,
+      128,
+      3,
+      3
+    ],
+    "layer2.0.bn2.weight": [
+      128
+    ],
+    "layer2.0.bn2.bias": [
+      128
+    ],
+    "layer2.0.bn2.running_mean": [
+      128
+    ],
+    "layer2.0.bn2.running_var": [
+      128
+    ],
+    "layer2.0.bn2.num_batches_tracked": [],
+    "layer2.0.downsample.0.weight": [
+      128,
+      64,
+      1,
+      1
+    ],
+    "layer2.0.downsample.1.weight": [
+      128
+    ],
+    "layer2.0.downsample.1.bias": [
+      128
+    ],
+    "layer2.0.downsample.1.running_mean": [
+      128
+    ],
+    "layer2.0.downsample.1.running_var": [
+      128
+    ],
+    "layer2.0.downsample.1.num_batches_tracked": [],
+    "layer2.1.conv1.weight": [
+      128,
+      128,
+      3,
+      3
+    ],
+    "layer2.1.bn1.weight": [
+      128
+    ],
+    "layer2.1.bn1.bias": [
+      128
+    ],
+    "layer2.1.bn1.running_mean": [
+      128
+    ],
+    "layer2.1.bn1.running_var": [
+      128
+    ],
+    "layer2.1.bn1.num_batches_tracked": [],
+    "layer2.1.conv2.weight": [
+      128,
+      128,
+      3,
+      3
+    ],
+    "layer2.1.bn2.weight": [
+      128
+    ],
+    "layer2.1.bn2.bias": [
+      128
+    ],
+    "layer2.1.bn2.running_mean": [
+      128
+    ],
+    "layer2.1.bn2.running_var": [
+      128
+    ],
+    "layer2.1.bn2.num_batches_tracked": [],
+    "layer3.0.conv1.weight": [
+      256,
+      128,
+      3,
+      3
+    ],
+    "layer3.0.bn1.weight": [
+      256
+    ],
+    "layer3.0.bn1.bias": [
+      256
+    ],
+    "layer3.0.bn1.running_mean": [
+      256
+    ],
+    "layer3.0.bn1.running_var": [
+      256
+    ],
+    "layer3.0.bn1.num_batches_tracked": [],
+    "layer3.0.conv2.weight": [
+      256,
+      256,
+      3,
+      3
+    ],
+    "layer3.0.bn2.weight": [
+      256
+    ],
+    "layer3.0.bn2.bias": [
+      256
+    ],
+    "layer3.0.bn2.running_mean": [
+      256
+    ],
+    "layer3.0.bn2.running_var": [
+      256
+    ],
+    "layer3.0.bn2.num_batches_tracked": [],
+    "layer3.0.downsample.0.weight": [
+      256,
+      128,
+      1,
+      1
+    ],
+    "layer3.0.downsample.1.weight": [
+      256
+    ],
+    "layer3.0.downsample.1.bias": [
+      256
+    ],
+    "layer3.0.downsample.1.running_mean": [
+      256
+    ],
+    "layer3.0.downsample.1.running_var": [
+      256
+    ],
+    "layer3.0.downsample.1.num_batches_tracked": [],
+    "layer3.1.conv1.weight": [
+      256,
+      256,
+      3,
+      3
+    ],
+    "layer3.1.bn1.weight": [
+      256
+    ],
+    "layer3.1.bn1.bias": [
+      256
+    ],
+    "layer3.1.bn1.running_mean": [
+      256
+    ],
+    "layer3.1.bn1.running_var": [
+      256
+    ],
+    "layer3.1.bn1.num_batches_tracked": [],
+    "layer3.1.conv2.weight": [
+      256,
+      256,
+      3,
+      3
+    ],
+    "layer3.1.bn2.weight": [
+      256
+    ],
+    "layer3.1.bn2.bias": [
+      256
+    ],
+    "layer3.1.bn2.running_mean": [
+      256
+    ],
+    "layer3.1.bn2.running_var": [
+      256
+    ],
+    "layer3.1.bn2.num_batches_tracked": [],
+    "layer4.0.conv1.weight": [
+      512,
+      256,
+      3,
+      3
+    ],
+    "layer4.0.bn1.weight": [
+      512
+    ],
+    "layer4.0.bn1.bias": [
+      512
+    ],
+    "layer4.0.bn1.running_mean": [
+      512
+    ],
+    "layer4.0.bn1.running_var": [
+      512
+    ],
+    "layer4.0.bn1.num_batches_tracked": [],
+    "layer4.0.conv2.weight": [
+      512,
+      512,
+      3,
+      3
+    ],
+    "layer4.0.bn2.weight": [
+      512
+    ],
+    "layer4.0.bn2.bias": [
+      512
+    ],
+    "layer4.0.bn2.running_mean": [
+      512
+    ],
+    "layer4.0.bn2.running_var": [
+      512
+    ],
+    "layer4.0.bn2.num_batches_tracked": [],
+    "layer4.0.downsample.0.weight": [
+      512,
+      256,
+      1,
+      1
+    ],
+    "layer4.0.downsample.1.weight": [
+      512
+    ],
+    "layer4.0.downsample.1.bias": [
+      512
+    ],
+    "layer4.0.downsample.1.running_mean": [
+      512
+    ],
+    "layer4.0.downsample.1.running_var": [
+      512
+    ],
+    "layer4.0.downsample.1.num_batches_tracked": [],
+    "layer4.1.conv1.weight": [
+      512,
+      512,
+      3,
+      3
+    ],
+    "layer4.1.bn1.weight": [
+      512
+    ],
+    "layer4.1.bn1.bias": [
+      512
+    ],
+    "layer4.1.bn1.running_mean": [
+      512
+    ],
+    "layer4.1.bn1.running_var": [
+      512
+    ],
+    "layer4.1.bn1.num_batches_tracked": [],
+    "layer4.1.conv2.weight": [
+      512,
+      512,
+      3,
+      3
+    ],
+    "layer4.1.bn2.weight": [
+      512
+    ],
+    "layer4.1.bn2.bias": [
+      512
+    ],
+    "layer4.1.bn2.running_mean": [
+      512
+    ],
+    "layer4.1.bn2.running_var": [
+      512
+    ],
+    "layer4.1.bn2.num_batches_tracked": [],
+    "fc.weight": [
+      1000,
+      512
+    ],
+    "fc.bias": [
+      1000
+    ]
+  },
+  "sha256": "56e1e591a37120b4d66b87c21450984d3de51ba95da2d2c744e6ca6d526ed729"
+}

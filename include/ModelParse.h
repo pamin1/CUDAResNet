@@ -65,7 +65,7 @@ struct ResNet18
 class ModelParse
 {
 public:
-  ModelParse(std::string path);
+  ModelParse(std::string jsonPath, std::string npzPath);
 
   json getModel()
   {
@@ -77,5 +77,6 @@ public:
 
 private:
   json jsonModel;
+  cnpy::npz_t npzData;
   ResNet18 model;
 };

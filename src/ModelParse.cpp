@@ -1,9 +1,11 @@
 #include "ModelParse.h"
 
-ModelParse::ModelParse(std::string path)
+ModelParse::ModelParse(std::string jsonPath, std::string npzPath)
 {
-  std::ifstream f(path);
-  this->jsonModel = json::parse(f);
+  std::ifstream f(jsonPath);
+
+  jsonModel = json::parse(f);
+  npzData = cnpy::npz_load(npzPath);
 };
 
 ResNet18 ModelParse::generateModel()

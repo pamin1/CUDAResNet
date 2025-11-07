@@ -21,6 +21,6 @@ target_link_libraries(resnet PRIVATE cnpy nlohmann_json::nlohmann_json ZLIB::ZLI
 
 add_custom_command(TARGET resnet POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_directory
-            "${PROJECT_SOURCE_DIR}/images"
-            "$<TARGET_FILE_DIR:resnet>/images"
+            "${PROJECT_SOURCE_DIR}/assets"
+            "$<TARGET_FILE_DIR:resnet>/assets"
 )

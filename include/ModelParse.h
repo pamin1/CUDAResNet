@@ -34,15 +34,48 @@ struct Downsample
   BatchNorm bn;
 };
 
+struct BasicBlock
+{
+  ConvLayer conv1;
+  BatchNorm bn1;
+  ConvLayer conv2;
+  BatchNorm bn2;
+
+  bool hasDownsample;
+  ConvLayer downsampleConv;
+  BatchNorm downsampleBn;
+};
+
+struct ResNet18
+{
+  // Initial layer
+  ConvLayer conv1;
+  BatchNorm bn1;
+
+  // 4 stages, each with 2 BasicBlocks
+  BasicBlock layer1[2];
+  BasicBlock layer2[2];
+  BasicBlock layer3[2];
+  BasicBlock layer4[2];
+
+  // Final classifier
+  FullyConnected fc;
+};
+
 class ModelParse
 {
 public:
   ModelParse(std::string path);
+
   json getModel()
   {
-    return model;
+    return jsonModel;
   }
 
+  ResNet18 generateModel();
+  void printResNet18(const ResNet18 &model);
+
 private:
-  json model;
+  json jsonModel;
+  ResNet18 model;
 };

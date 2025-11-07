@@ -1,2 +1,2 @@
 # CUDA ResNet
-ResNet architecture implemented with CUDA Kernels.
+[ResNet Architecture](Resnet/ResNetArchitecture.md) implemented with CUDA Kernels.

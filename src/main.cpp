@@ -13,7 +13,7 @@ int main()
   // }
 
   // parse model json
-  ModelParse mp("assets/resnet18_manifest.json");
+  ModelParse mp("assets/resnet18_manifest.json", "assets/resnet18_fp32.npz");
   json m = mp.getModel();
 
   ResNet18 model = mp.generateModel();

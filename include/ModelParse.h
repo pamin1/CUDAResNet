@@ -1,31 +1,33 @@
 #include <cnpy/cnpy.h>
+#include <cuda_runtime_api.h>
 #include <fstream>
 #include <nlohmann/json.hpp>
+
 using json = nlohmann::json;
 
 struct ConvLayer
 {
   int outputSize;
   int inputSize;
-  int kernelSize;
-  float *d_weight;
+  int kernelSize; // guaranteed square kernel shapes
+  const float *h_weight;
 };
 
 struct BatchNorm
 {
   int numFeatures;
-  float *d_weight;
-  float *d_bias;
-  float *d_runningMean;
-  float *d_runningVar;
+  const float *h_weight;
+  const float *h_bias;
+  const float *h_runningMean;
+  const float *h_runningVar;
 };
 
 struct FullyConnected
 {
   int outputSize;
   int inputSize;
-  float *d_weight;
-  float *d_bias;
+  const float *h_weight;
+  const float *h_bias;
 };
 
 struct Downsample
@@ -72,11 +74,16 @@ public:
     return jsonModel;
   }
 
+  cnpy::npz_t getData()
+  {
+    return npzData;
+  }
+
   ResNet18 generateModel();
   void printResNet18(const ResNet18 &model);
 
 private:
   json jsonModel;
-  cnpy::npz_t npzData;
+  cnpy::npz_t npzData; // prevents dangling pointers later on
   ResNet18 model;
 };

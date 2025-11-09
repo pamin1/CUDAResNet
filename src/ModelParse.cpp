@@ -16,7 +16,13 @@ ResNet18 ModelParse::generateModel()
   model.conv1.outputSize = jsonModel["tensors"]["conv1.weight"][0];
   model.conv1.inputSize = jsonModel["tensors"]["conv1.weight"][1];
   model.conv1.kernelSize = jsonModel["tensors"]["conv1.weight"][2];
+  model.conv1.h_weight = npzData["conv1.weight"].data<float>();
+
   model.bn1.numFeatures = jsonModel["tensors"]["bn1.weight"][0];
+  model.bn1.h_weight = npzData["bn1.weight"].data<float>();
+  model.bn1.h_bias = npzData["bn1.bias"].data<float>();
+  model.bn1.h_runningMean = npzData["bn1.running_mean"].data<float>();
+  model.bn1.h_runningVar = npzData["bn1.running_var"].data<float>();
 
   // Helper lambda for parsing blocks
   auto parseBlock = [this](BasicBlock &block, const std::string &prefix)
@@ -24,12 +30,24 @@ ResNet18 ModelParse::generateModel()
     block.conv1.outputSize = jsonModel["tensors"][prefix + ".conv1.weight"][0];
     block.conv1.inputSize = jsonModel["tensors"][prefix + ".conv1.weight"][1];
     block.conv1.kernelSize = jsonModel["tensors"][prefix + ".conv1.weight"][2];
+    block.conv1.h_weight = npzData[prefix + ".conv1.weight"].data<float>();
+
     block.bn1.numFeatures = jsonModel["tensors"][prefix + ".bn1.weight"][0];
+    block.bn1.h_weight = npzData[prefix + ".bn1.weight"].data<float>();
+    block.bn1.h_bias = npzData[prefix + ".bn1.bias"].data<float>();
+    block.bn1.h_runningMean = npzData[prefix + ".bn1.running_mean"].data<float>();
+    block.bn1.h_runningVar = npzData[prefix + ".bn1.running_var"].data<float>();
 
     block.conv2.outputSize = jsonModel["tensors"][prefix + ".conv2.weight"][0];
     block.conv2.inputSize = jsonModel["tensors"][prefix + ".conv2.weight"][1];
     block.conv2.kernelSize = jsonModel["tensors"][prefix + ".conv2.weight"][2];
+    block.conv2.h_weight = npzData[prefix + ".conv2.weight"].data<float>();
+
     block.bn2.numFeatures = jsonModel["tensors"][prefix + ".bn2.weight"][0];
+    block.bn2.h_weight = npzData[prefix + ".bn2.weight"].data<float>();
+    block.bn2.h_bias = npzData[prefix + ".bn2.bias"].data<float>();
+    block.bn2.h_runningMean = npzData[prefix + ".bn2.running_mean"].data<float>();
+    block.bn2.h_runningVar = npzData[prefix + ".bn2.running_var"].data<float>();
 
     // Check if downsample exists
     std::string downsampleKey = prefix + ".downsample.0.weight";
@@ -39,7 +57,13 @@ ResNet18 ModelParse::generateModel()
       block.downsampleConv.outputSize = jsonModel["tensors"][downsampleKey][0];
       block.downsampleConv.inputSize = jsonModel["tensors"][downsampleKey][1];
       block.downsampleConv.kernelSize = jsonModel["tensors"][downsampleKey][2];
+      block.downsampleConv.h_weight = npzData[prefix + ".downsample.0.weight"].data<float>();
+
       block.downsampleBn.numFeatures = jsonModel["tensors"][prefix + ".downsample.1.weight"][0];
+      block.downsampleBn.h_weight = npzData[prefix + ".downsample.1.weight"].data<float>();
+      block.downsampleBn.h_bias = npzData[prefix + ".downsample.1.bias"].data<float>();
+      block.downsampleBn.h_runningMean = npzData[prefix + ".downsample.1.running_mean"].data<float>();
+      block.downsampleBn.h_runningVar = npzData[prefix + ".downsample.1.running_var"].data<float>();
     }
     else
     {
@@ -75,6 +99,8 @@ ResNet18 ModelParse::generateModel()
   // Final FC layer
   model.fc.outputSize = jsonModel["tensors"]["fc.weight"][0];
   model.fc.inputSize = jsonModel["tensors"]["fc.weight"][1];
+  model.fc.h_weight = npzData["fc.weight"].data<float>();
+  model.fc.h_bias = npzData["fc.bias"].data<float>();
 
   return model;
 }

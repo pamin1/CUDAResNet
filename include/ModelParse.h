@@ -1,3 +1,6 @@
+#ifndef MODEL_PARSE_H
+#define MODEL_PARSE_H
+
 #include <cnpy/cnpy.h>
 #include <cuda_runtime_api.h>
 #include <fstream>
@@ -44,8 +47,7 @@ struct BasicBlock
   BatchNorm bn2;
 
   bool hasDownsample;
-  ConvLayer downsampleConv;
-  BatchNorm downsampleBn;
+  Downsample ds;
 };
 
 struct ResNet18
@@ -87,3 +89,5 @@ private:
   cnpy::npz_t npzData; // prevents dangling pointers later on
   ResNet18 model;
 };
+
+#endif

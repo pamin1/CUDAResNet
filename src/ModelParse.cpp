@@ -54,16 +54,16 @@ ResNet18 ModelParse::generateModel()
     if (jsonModel["tensors"].contains(downsampleKey))
     {
       block.hasDownsample = true;
-      block.downsampleConv.outputSize = jsonModel["tensors"][downsampleKey][0];
-      block.downsampleConv.inputSize = jsonModel["tensors"][downsampleKey][1];
-      block.downsampleConv.kernelSize = jsonModel["tensors"][downsampleKey][2];
-      block.downsampleConv.h_weight = npzData[prefix + ".downsample.0.weight"].data<float>();
+      block.ds.weight.outputSize = jsonModel["tensors"][downsampleKey][0];
+      block.ds.weight.inputSize = jsonModel["tensors"][downsampleKey][1];
+      block.ds.weight.kernelSize = jsonModel["tensors"][downsampleKey][2];
+      block.ds.weight.h_weight = npzData[prefix + ".downsample.0.weight"].data<float>();
 
-      block.downsampleBn.numFeatures = jsonModel["tensors"][prefix + ".downsample.1.weight"][0];
-      block.downsampleBn.h_weight = npzData[prefix + ".downsample.1.weight"].data<float>();
-      block.downsampleBn.h_bias = npzData[prefix + ".downsample.1.bias"].data<float>();
-      block.downsampleBn.h_runningMean = npzData[prefix + ".downsample.1.running_mean"].data<float>();
-      block.downsampleBn.h_runningVar = npzData[prefix + ".downsample.1.running_var"].data<float>();
+      block.ds.bn.numFeatures = jsonModel["tensors"][prefix + ".downsample.1.weight"][0];
+      block.ds.bn.h_weight = npzData[prefix + ".downsample.1.weight"].data<float>();
+      block.ds.bn.h_bias = npzData[prefix + ".downsample.1.bias"].data<float>();
+      block.ds.bn.h_runningMean = npzData[prefix + ".downsample.1.running_mean"].data<float>();
+      block.ds.bn.h_runningVar = npzData[prefix + ".downsample.1.running_var"].data<float>();
     }
     else
     {
@@ -134,10 +134,10 @@ void ModelParse::printResNet18(const ResNet18 &model)
     if (block.hasDownsample)
     {
       std::cout << "    downsample:" << std::endl;
-      std::cout << "      conv: [out=" << block.downsampleConv.outputSize
-                << ", in=" << block.downsampleConv.inputSize
-                << ", kernel=" << block.downsampleConv.kernelSize << "]" << std::endl;
-      std::cout << "      bn: [features=" << block.downsampleBn.numFeatures << "]" << std::endl;
+      std::cout << "      conv: [out=" << block.ds.weight.outputSize
+                << ", in=" << block.ds.weight.inputSize
+                << ", kernel=" << block.ds.weight.kernelSize << "]" << std::endl;
+      std::cout << "      bn: [features=" << block.ds.bn.numFeatures << "]" << std::endl;
     }
     else
     {
@@ -199,9 +199,9 @@ void ModelParse::printResNet18(const ResNet18 &model)
 
     if (block.hasDownsample)
     {
-      totalParams += block.downsampleConv.outputSize * block.downsampleConv.inputSize *
-                     block.downsampleConv.kernelSize * block.downsampleConv.kernelSize;
-      totalParams += block.downsampleBn.numFeatures * 4;
+      totalParams += block.ds.weight.outputSize * block.ds.weight.inputSize *
+                     block.ds.weight.kernelSize * block.ds.weight.kernelSize;
+      totalParams += block.ds.bn.numFeatures * 4;
     }
   };
 

@@ -6,11 +6,12 @@ class ImageClassifier
 public:
   explicit ImageClassifier(std::string path); // only allow constrcutor with
                                               // image path (no default)
-  std::vector<float> getHostImage()
+  float *getHostImage()
   {
     return host;
   }
+  static const size_t size = 224 * 224 * 3;
 
 private:
-  std::vector<float> host;
+  float host[size];
 };

@@ -1,8 +1,12 @@
 #include "Kernel.cuh"
 
-__global__ void conv2d_kernel(const float *input,  // [in_channels, H, W]
-                              const float *weight, // [out_channels, in_channels, kH, kW]
-                              float *output,       // [out_channels, H_out, W_out]
+__global__ void conv2d_kernel(const float *input,    // [in_channels, H, W]
+                              const float *weight,   // [out_channels, in_channels, kH, kW]
+                              const float *bnWeight, //
+                              const float *bnBias,   //
+                              const float *bnMean,   //
+                              const float *bnVar,    //
+                              float *output,         // [out_channels, H_out, W_out]
                               int in_channels, int out_channels, // channels
                               int H, int W, int outH, int outW,  // dims
                               int kernel_size, int stride, int padding)
@@ -38,11 +42,13 @@ __global__ void conv2d_kernel(const float *input,  // [in_channels, H, W]
     }
   }
   int output_idx = oc * outH * outW + out_h * outW + out_w;
-  output[output_idx] = sum;
+  float scale = bnWeight[oc] / sqrtf(bnVar[oc] + EPSILON);
+
+  output[output_idx] = scale * (sum - bnMean[oc]) + bnBias[oc];
 }
 
-void launchConvKernel(float *image, float *output, const ConvLayerDev &conv, int inputDim,
-                      int stride, int pad)
+void launchConvKernel(float *image, float *output, const ConvLayerDev &conv, const BatchNormDev &bn,
+                      int inputDim, int stride, int pad)
 {
   int outputH = computeDim(inputDim, stride, pad, conv.kernelSize);
   int outputW = computeDim(inputDim, stride, pad, conv.kernelSize);
@@ -56,8 +62,15 @@ void launchConvKernel(float *image, float *output, const ConvLayerDev &conv, int
             (outputH + block.y - 1) / block.y, // Fixed: use block.y, add parentheses
             conv.outputSize);
 
-  conv2d_kernel<<<grid, block>>>(image, conv.d_weight, output, conv.inputSize, conv.outputSize,
-                                 inputDim, inputDim, // input height, width
-                                 outputH, outputW,   // Fixed: use outputH, outputW
+  conv2d_kernel<<<grid, block>>>(image,            //
+                                 conv.d_weight,    //
+                                 bn.d_weight,      //
+                                 bn.d_bias,        //
+                                 bn.d_runningMean, //
+                                 bn.d_runningVar,  //
+                                 output,           //
+                                 conv.inputSize, conv.outputSize, inputDim,
+                                 inputDim,         // input height, width
+                                 outputH, outputW, // Fixed: use outputH, outputW
                                  conv.kernelSize, stride, pad);
 }

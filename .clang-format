@@ -6,6 +6,6 @@ AllowShortIfStatementsOnASingleLine: false
 AllowShortLoopsOnASingleLine: false
 AllowShortBlocksOnASingleLine: false
 AllowShortFunctionsOnASingleLine: None
-ColumnLimit: 0   # unlimited line length (optional, remove if you want wrapping)
+ColumnLimit: 100
 SpaceBeforeParens: ControlStatements
 IndentCaseLabels: true

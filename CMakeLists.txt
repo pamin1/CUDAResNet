@@ -35,7 +35,7 @@ target_link_libraries(resnet PRIVATE
     nlohmann_json::nlohmann_json
     ZLIB::ZLIB
     ${OpenCV_LIBS}
-    CUDA::cudart         # <-- THIS is the important line
+    CUDA::cudart
 )
 
 # (optional but nice if/when you add real kernels)

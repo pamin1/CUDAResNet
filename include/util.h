@@ -1,11 +1,16 @@
+#ifndef UTIL_H
+#define UTIL_H
+
+#define IMAGE_DIM 224
+
 #include <cuda_runtime_api.h>
 #include <driver_types.h>
 #include <stdio.h>
 #include <stdlib.h>
 
-#define CHECK_ERROR(ans)                  \
-  {                                       \
-    gpuAssert((ans), __FILE__, __LINE__); \
+#define CHECK_ERROR(ans)                                                                           \
+  {                                                                                                \
+    gpuAssert((ans), __FILE__, __LINE__);                                                          \
   }
 
 inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort = true)
@@ -17,3 +22,10 @@ inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort =
       exit(code);
   }
 }
+
+inline int computeDim(int inputDim, int stride, int pad, int kernelDim)
+{
+  return (inputDim + 2 * pad - kernelDim) / stride + 1;
+}
+
+#endif

@@ -10,7 +10,8 @@ void CopyModel::copyConvLayer(ConvLayerDev &dst, const ConvLayer &src)
   // allocate and copy
   size_t size = dst.outputSize * dst.inputSize * dst.kernelSize * dst.kernelSize;
   CHECK_ERROR(cudaMalloc((void **)&dst.d_weight, sizeof(float) * size));
-  CHECK_ERROR(cudaMemcpy((void *)dst.d_weight, (const void *)src.h_weight, size * sizeof(float), cudaMemcpyHostToDevice));
+  CHECK_ERROR(cudaMemcpy((void *)dst.d_weight, (const void *)src.h_weight, size * sizeof(float),
+                         cudaMemcpyHostToDevice));
 }
 
 void CopyModel::copyBatchNorm(BatchNormDev &dst, const BatchNorm &src)
@@ -25,10 +26,14 @@ void CopyModel::copyBatchNorm(BatchNormDev &dst, const BatchNorm &src)
   CHECK_ERROR(cudaMalloc((void **)&dst.d_runningVar, size));
 
   // copy
-  CHECK_ERROR(cudaMemcpy((void *)dst.d_weight, (const void *)src.h_weight, size, cudaMemcpyHostToDevice));
-  CHECK_ERROR(cudaMemcpy((void *)dst.d_bias, (const void *)src.h_bias, size, cudaMemcpyHostToDevice));
-  CHECK_ERROR(cudaMemcpy((void *)dst.d_runningMean, (const void *)src.h_runningMean, size, cudaMemcpyHostToDevice));
-  CHECK_ERROR(cudaMemcpy((void *)dst.d_runningVar, (const void *)src.h_runningVar, size, cudaMemcpyHostToDevice));
+  CHECK_ERROR(
+      cudaMemcpy((void *)dst.d_weight, (const void *)src.h_weight, size, cudaMemcpyHostToDevice));
+  CHECK_ERROR(
+      cudaMemcpy((void *)dst.d_bias, (const void *)src.h_bias, size, cudaMemcpyHostToDevice));
+  CHECK_ERROR(cudaMemcpy((void *)dst.d_runningMean, (const void *)src.h_runningMean, size,
+                         cudaMemcpyHostToDevice));
+  CHECK_ERROR(cudaMemcpy((void *)dst.d_runningVar, (const void *)src.h_runningVar, size,
+                         cudaMemcpyHostToDevice));
 }
 
 void CopyModel::copyFullyConnected(FullyConnectedDev &dst, const FullyConnected &src)
@@ -43,8 +48,10 @@ void CopyModel::copyFullyConnected(FullyConnectedDev &dst, const FullyConnected 
   CHECK_ERROR(cudaMalloc((void **)&dst.d_bias, bSize));
 
   // copy
-  CHECK_ERROR(cudaMemcpy((void *)dst.d_weight, (const void *)src.h_weight, wSize, cudaMemcpyHostToDevice));
-  CHECK_ERROR(cudaMemcpy((void *)dst.d_bias, (const void *)src.h_bias, bSize, cudaMemcpyHostToDevice));
+  CHECK_ERROR(
+      cudaMemcpy((void *)dst.d_weight, (const void *)src.h_weight, wSize, cudaMemcpyHostToDevice));
+  CHECK_ERROR(
+      cudaMemcpy((void *)dst.d_bias, (const void *)src.h_bias, bSize, cudaMemcpyHostToDevice));
 }
 
 void CopyModel::copyDownSample(DownsampleDev &dst, const Downsample &src)
@@ -65,23 +72,68 @@ void CopyModel::copyBasicBlock(BasicBlockDev &dst, const BasicBlock &src)
   copyDownSample(dst.ds, src.ds);
 }
 
-CopyModel::CopyModel(const ResNet18 &model)
+void CopyModel::freeConvLayer(ConvLayerDev &layer)
 {
-  copyConvLayer(devModel.conv1, model.conv1);
-  // copyBatchNorm(devModel.bn1, model.bn1);
+  if (layer.d_weight != nullptr)
+  {
+    CHECK_ERROR(cudaFree((void *)layer.d_weight));
+    layer.d_weight = nullptr;
+  }
+}
 
-  // auto copyLayers = [&](BasicBlockDev *dst, const BasicBlock *src)
-  // {
-  //   copyBasicBlock(dst[0], src[0]);
-  //   copyBasicBlock(dst[1], src[1]);
-  // };
+void CopyModel::freeBatchNorm(BatchNormDev &bn)
+{
+  if (bn.d_weight != nullptr)
+  {
+    CHECK_ERROR(cudaFree((void *)bn.d_weight));
+    bn.d_weight = nullptr;
+  }
+  if (bn.d_bias != nullptr)
+  {
+    CHECK_ERROR(cudaFree((void *)bn.d_bias));
+    bn.d_bias = nullptr;
+  }
+  if (bn.d_runningMean != nullptr)
+  {
+    CHECK_ERROR(cudaFree((void *)bn.d_runningMean));
+    bn.d_runningMean = nullptr;
+  }
+  if (bn.d_runningVar != nullptr)
+  {
+    CHECK_ERROR(cudaFree((void *)bn.d_runningVar));
+    bn.d_runningVar = nullptr;
+  }
+}
 
-  // copyLayers(devModel.layer1, model.layer1);
-  // copyLayers(devModel.layer2, model.layer2);
-  // copyLayers(devModel.layer3, model.layer3);
-  // copyLayers(devModel.layer4, model.layer4);
+void CopyModel::freeFullyConnected(FullyConnectedDev &fc)
+{
+  if (fc.d_weight != nullptr)
+  {
+    CHECK_ERROR(cudaFree((void *)fc.d_weight));
+    fc.d_weight = nullptr;
+  }
+  if (fc.d_bias != nullptr)
+  {
+    CHECK_ERROR(cudaFree((void *)fc.d_bias));
+    fc.d_bias = nullptr;
+  }
+}
 
-  // copyFullyConnected(devModel.fc, model.fc);
+void CopyModel::freeDownSample(DownsampleDev &ds)
+{
+  freeConvLayer(ds.weight);
+  freeBatchNorm(ds.bn);
+}
 
-  std::cout << "Successfully loaded model on GPU\n";
+void CopyModel::freeBasicBlock(BasicBlockDev &block)
+{
+  freeConvLayer(block.conv1);
+  freeConvLayer(block.conv2);
+  freeBatchNorm(block.bn1);
+  freeBatchNorm(block.bn2);
+
+  if (block.hasDownsample)
+  {
+    freeDownSample(block.ds);
+  }
 }

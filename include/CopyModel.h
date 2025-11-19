@@ -1,3 +1,5 @@
+#ifndef COPYMODEL_H
+#define COPYMODEL_H
 #include "ModelParse.h"
 #include "ResNetDev.h"
 #include "iostream"
@@ -22,13 +24,18 @@ struct ResNetDev
 class CopyModel
 {
 public:
-  CopyModel(const ResNet18 &model);
-
+  CopyModel(){};
   void copyConvLayer(ConvLayerDev &dst, const ConvLayer &src);
   void copyBatchNorm(BatchNormDev &dst, const BatchNorm &src);
   void copyDownSample(DownsampleDev &dst, const Downsample &src);
   void copyFullyConnected(FullyConnectedDev &dst, const FullyConnected &src);
   void copyBasicBlock(BasicBlockDev &dst, const BasicBlock &src);
+
+  void freeConvLayer(ConvLayerDev &layer);
+  void freeBatchNorm(BatchNormDev &bn);
+  void freeFullyConnected(FullyConnectedDev &fc);
+  void freeDownSample(DownsampleDev &ds);
+  void freeBasicBlock(BasicBlockDev &block);
 
   ResNetDev getDevModel()
   {
@@ -38,3 +45,5 @@ public:
 private:
   ResNetDev devModel;
 };
+
+#endif

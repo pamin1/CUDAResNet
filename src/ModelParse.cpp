@@ -153,6 +153,52 @@ ResNet18 ModelParse::generateModel()
     return model;
 }
 
+void ModelParse::freeModel(ResNet18 &model)
+{
+    // free initial conv and bn layers
+    cudaFree((void *)model.conv1.d_weight);
+    cudaFree((void *)model.bn1.d_weight);
+    cudaFree((void *)model.bn1.d_bias);
+    cudaFree((void *)model.bn1.d_runningMean);
+    cudaFree((void *)model.bn1.d_runningVar);
+
+    // free layers
+    for (int layer = 0; layer < 4; layer++)
+    {
+        for (int block = 0; block < 2; block++)
+        {
+            BasicBlock &bb = (layer == 0) ? model.layer1[block] : (layer == 1) ? model.layer2[block]
+                                                              : (layer == 2)   ? model.layer3[block]
+                                                                               : model.layer4[block];
+
+            cudaFree((void *)bb.conv1.d_weight);
+            cudaFree((void *)bb.bn1.d_weight);
+            cudaFree((void *)bb.bn1.d_bias);
+            cudaFree((void *)bb.bn1.d_runningMean);
+            cudaFree((void *)bb.bn1.d_runningVar);
+
+            cudaFree((void *)bb.conv2.d_weight);
+            cudaFree((void *)bb.bn2.d_weight);
+            cudaFree((void *)bb.bn2.d_bias);
+            cudaFree((void *)bb.bn2.d_runningMean);
+            cudaFree((void *)bb.bn2.d_runningVar);
+
+            if (bb.hasDownsample)
+            {
+                cudaFree((void *)bb.ds.weight.d_weight);
+                cudaFree((void *)bb.ds.bn.d_weight);
+                cudaFree((void *)bb.ds.bn.d_bias);
+                cudaFree((void *)bb.ds.bn.d_runningMean);
+                cudaFree((void *)bb.ds.bn.d_runningVar);
+            }
+        }
+    }
+
+    // free fc
+    cudaFree((void *)model.fc.d_weight);
+    cudaFree((void *)model.fc.d_bias);
+}
+
 void ModelParse::printResNet18(const ResNet18 &model)
 {
     std::cout << "=== ResNet18 Architecture ===" << std::endl;

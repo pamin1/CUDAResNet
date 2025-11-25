@@ -1,17 +1,21 @@
 #ifndef MODEL_PARSE_H
 #define MODEL_PARSE_H
 
+#include <ResNetDev.h>
 #include <cnpy/cnpy.h>
 #include <cuda_runtime_api.h>
 #include <fstream>
 #include <nlohmann/json.hpp>
-#include <ResNetDev.h>
 using json = nlohmann::json;
 
 class ModelParse
 {
   public:
     ModelParse(std::string jsonPath, std::string npzPath);
+    ResNet18 generateModel();
+    void freeModel(ResNet18 &model);
+
+    void printResNet18(const ResNet18 &model);
 
     json getModel()
     {
@@ -22,9 +26,6 @@ class ModelParse
     {
         return npzData;
     }
-
-    ResNet18 generateModel();
-    void printResNet18(const ResNet18 &model);
 
   private:
     json jsonModel;

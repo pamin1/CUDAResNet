@@ -196,6 +196,7 @@ int main()
     delete[] h_results;
     cudaFree(pooled_out);
     cudaFree(final_out);
+    mp.freeModel(model);
     // ------------------------------------------
 
     return 0;

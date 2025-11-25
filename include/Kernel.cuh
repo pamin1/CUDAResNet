@@ -9,13 +9,13 @@
 
 #define EPSILON 1e-5
 
-__global__ void conv2d_kernel(const float *input,    // [in_channels, H, W]
-                              const float *weight,   // [out_channels, in_channels, kH, kW]
-                              const float *bnWeight, //
-                              const float *bnBias,   //
-                              const float *bnMean,   //
-                              const float *bnVar,    //
-                              float *output,         // [out_channels, H_out, W_out]
+__global__ void conv2d_kernel(const float *input,                // [in_channels, H, W]
+                              const float *weight,               // [out_channels, in_channels, kH, kW]
+                              const float *bnWeight,             //
+                              const float *bnBias,               //
+                              const float *bnMean,               //
+                              const float *bnVar,                //
+                              float *output,                     // [out_channels, H_out, W_out]
                               int in_channels, int out_channels, // channels
                               int H, int W, int outH, int outW,  // dims
                               int kernel_size, int stride, int padding);
@@ -43,11 +43,11 @@ __global__ void fc_kernel(const float *input,  // [in_features]
                           float *output,       // [out_features]
                           int in_features, int out_features);
 
-void launchConvKernel(float *image, float *output, const ConvLayerDev &conv, const BatchNormDev &bn,
+void launchConvKernel(float *image, float *output, const ConvLayer &conv, const BatchNorm &bn,
                       int inputDim, int stride, int pad);
-void launchDownsampleKernel(float *input, float *output, const DownsampleDev &ds, int H, int W);
+void launchDownsampleKernel(float *input, float *output, const Downsample &ds, int H, int W);
 
-void runBasicBlock(const BasicBlockDev &bb, float *input, float *output, int inputChannels,
+void runBasicBlock(const BasicBlock &bb, float *input, float *output, int inputChannels,
                    int inputH, int inputW, int stride1);
 
 void launchMaxPoolKernel(float *input, float *output, int H, int W, int C, int kernel_size,
@@ -55,7 +55,7 @@ void launchMaxPoolKernel(float *input, float *output, int H, int W, int C, int k
 
 void launchAdaptiveAvgPoolKernel(float *input, float *output, int H, int W, int C);
 
-void launchFCKernel(float *input, float *output, const FullyConnectedDev &fc, int in_features,
+void launchFCKernel(float *input, float *output, const FullyConnected &fc, int in_features,
                     int out_features);
 
 void launchReLUKernel(float *input, float *output, int size);

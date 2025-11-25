@@ -1,79 +1,85 @@
+#include "Benchmark.h"
 #include "ImageClassifier.h"
 #include "Kernel.cuh"
 #include "ModelImplementation.h"
 #include "ModelParse.h"
 #include <labels.h>
 
+#define SAMPLE 1000
+
 int main()
 {
-    // create an image classifier object
-    ImageClassifier ic("assets/dog.png");
-
-    // grab the host image
-    float *input = ic.getHostImage();
-    for (int i = 0; i < ic.size; i++)
-    {
-        if (input[i] == 0)
-        {
-            std::cout << "Host image uninitialized?\n"; // shouldnt be any non zero pixels usually
-        }
-    }
-    std::cout << "Host image initialized\n";
-
-    // parse model json
+    // parse model
     ModelParse mp("assets/resnet18_manifest.json", "assets/resnet18_fp32.npz");
     ResNet18 model = mp.generateModel();
 
     mp.printResNet18(model);
 
-    size_t free_mem, total_mem;
-    cudaMemGetInfo(&free_mem, &total_mem);
-    std::cout << "\nGPU Memory - Free: " << free_mem / (1024.0 * 1024.0)
-              << " MB, Total: " << total_mem / (1024.0 * 1024.0) << " MB"
-              << "\n";
-    std::cout << "Used: " << (total_mem - free_mem) / (1024.0 * 1024.0) << " MB"
-              << "\n";
+    // initialize CIFAR
+    CIFARLoader cifar("assets/cifar-10-batches-bin/test_batch.bin", SAMPLE);
 
-    // copy image to GPU
-    float *image;
-    size_t size = 224 * 224 * 3 * sizeof(float);
+    // SETUP: Preload all images to GPU (do this ONCE, before benchmarking)
+    std::cout << "Loading images to GPU...\n";
+    std::vector<float *> d_images;
+    std::vector<float *> h_results_buffers;
 
-    CHECK_ERROR(cudaMalloc((void **)&image, size));
-    cudaMemcpy(image, input, size, cudaMemcpyHostToDevice);
-
-    // initialize output array
-    float *out;
-    int dim = computeDim(IMAGE_DIM, 2, 3, model.conv1.kernelSize);
-    size_t outSize = dim * dim * model.conv1.outputSize;
-
-    CHECK_ERROR(cudaMalloc((void **)&out, outSize * sizeof(float)));
-    CHECK_ERROR(cudaMemset(out, 0, outSize * sizeof(float)));
-
-    // launch the CUDA ResNet18 model
-    float *res = launchModel(model, image, out);
-
-    // find top-5 predictions
-    std::cout << "\nTop-5 Predictions:\n";
-
-    std::vector<std::string> labels = loadImageNetLabels("assets/imagenet_classes.txt");
-    for (int i = 0; i < 5; i++)
+    for (int i = 0; i < SAMPLE; i++)
     {
-        float max_val = -INFINITY;
-        int max_idx = -1;
-        for (int j = 0; j < 1000; j++)
-        {
-            if (res[j] > max_val)
-            {
-                max_val = res[j];
-                max_idx = j;
-            }
-        }
-        std::cout << max_idx << ": " << labels[max_idx] << " (score: " << max_val << ")\n";
-        res[max_idx] = -INFINITY;
+        float *h_image = cifar.getProcessedImage(i);
+
+        float *d_image;
+        CHECK_ERROR(cudaMalloc((void **)&d_image, 224 * 224 * 3 * sizeof(float)));
+        cudaMemcpy(d_image, h_image, 224 * 224 * 3 * sizeof(float), cudaMemcpyHostToDevice);
+
+        d_images.push_back(d_image);
+        h_results_buffers.push_back(new float[1000]);
+
+        delete[] h_image;
     }
 
+    std::cout << "All images loaded to GPU\n";
+
+    // WARMUP
+    std::cout << "Warming up...\n";
+    for (int i = 0; i < 10; i++)
+    {
+        float *res = launchModel(model, d_images[i % d_images.size()]);
+        delete[] res;
+    }
+
+    // BENCHMARK (pure inference, no I/O)
+    std::cout << "Running benchmark...\n";
+    cudaEvent_t start, stop;
+    cudaEventCreate(&start);
+    cudaEventCreate(&stop);
+
+    cudaEventRecord(start);
+
+    for (int i = 0; i < SAMPLE; i++)
+    {
+        float *res = launchModel(model, d_images[i]);
+        delete[] res;
+    }
+
+    cudaEventRecord(stop);
+    cudaEventSynchronize(stop);
+
+    float total_ms;
+    cudaEventElapsedTime(&total_ms, start, stop);
+
+    std::cout << "\n=== BENCHMARK RESULTS (Pure Inference) ===\n";
+    std::cout << "Images: SAMPLE\n";
+    std::cout << "Total time: " << total_ms << " ms\n";
+    std::cout << "Average per image: " << total_ms / SAMPLE << " ms\n";
+    std::cout << "Throughput: " << (SAMPLE * 1000.0f) / total_ms << " img/s\n";
+
+    // CLEANUP
+    for (auto d_img : d_images)
+        cudaFree(d_img);
+    for (auto h_res : h_results_buffers)
+        delete[] h_res;
+
     // cleanup
-    delete[] res;
     mp.freeModel(model);
 
     return 0;

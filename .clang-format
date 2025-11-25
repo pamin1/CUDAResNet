@@ -1,11 +1,11 @@
 BasedOnStyle: LLVM
-IndentWidth: 2
+IndentWidth: 4
 UseTab: Never
 BreakBeforeBraces: Allman
 AllowShortIfStatementsOnASingleLine: false
 AllowShortLoopsOnASingleLine: false
 AllowShortBlocksOnASingleLine: false
 AllowShortFunctionsOnASingleLine: None
-ColumnLimit: 100
+ColumnLimit: 0
 SpaceBeforeParens: ControlStatements
 IndentCaseLabels: true

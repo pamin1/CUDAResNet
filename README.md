@@ -4,7 +4,7 @@
 Explore and implement the ResNet architecture using CUDA acceleration. 
 
 ## Usage
-Clone repo:
+Clone:
 ```
 git clone https://github.com/pamin1/CUDAResNet.git
 cd CUDAResNet
@@ -23,7 +23,7 @@ Run:
 ./resnet
 ```
 
-To modify the input image, add to `assests` folder and update the image used in the main function.
+To modify the input image, add image to `assets` folder and update the image used in the main function.
 
 ## Why ResNet?
 ### Vanishing Gradient Problem
@@ -69,15 +69,11 @@ The model is split between two files. The JSON manifest contains the model archi
 5. Fully Connected
 
 Using nlohmann json, I am able to parse the architecture/layers sizes into the model.
-This leaves parsing the NPZ file similarily to get the layer weights and allocate them to the GPU.
+I parse the NPZ file similarily to get the layer weights and allocate them to the GPU.
 
-Two options:
-1. allocate weights during json parsing
-2. copy weights to host structures and then copy to device before launching kernel.
+On the first version, I had two separate structs for holding the model data. One struct held the data on the host and the other on the device. This added a ton of bloat to the codebase and implementation.
 
-Currently using option 2 because its just slightly simpler with the data parsing. It lets me assign to the arrays within the struct without having to allocate memory during the parse. This approach takes more memory usage since there are two copies of the weights.
-
-This data is then copied and freed as needed within the actual model implementation.
+After refactoring, the memory allocation step has been integrated into one setup function such that the actual implementation does not require copying and freeing later on. This all fits on the comfortably on the GPU since the ResNet18 architecture is relatively small (~11M params, ~44MB). Similar to initialization, freeing is also all done in one function.
 
 ### Model Implementation
 The general flow of operations goes as follows:

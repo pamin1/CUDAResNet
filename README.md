@@ -23,8 +23,18 @@ Run:
 ./resnet
 ```
 
-To modify the input image, add image to `assets` folder and update the image used in the main function.
+## Benchmarks
+## Performance Benchmarks
 
+### v1.0.0: Naive
+| Sample Size | PyTorch (ms/img) | Custom CUDA (ms/img) | Speedup | PyTorch Throughput | Custom Throughput |
+| :---------: | :--------------: | :------------------: | :-----: | :----------------: | :---------------: |
+|     100     |       4.93       |        41.49         |  0.11x  |    202.80 img/s    |    24.10 img/s    |
+|     250     |       4.53       |        41.38         |  0.10x  |    220.86 img/s    |    24.16 img/s    |
+|     500     |       4.51       |        40.68         |  0.11x  |    221.91 img/s    |    24.58 img/s    |
+|    1000     |       4.44       |        41.33         |  0.10x  |    225.22 img/s    |    24.19 img/s    |
+
+Custom implementation consistently ~10x slower than PyTorch CUDA version.
 ## Why ResNet?
 ### Vanishing Gradient Problem
 As the number of layers in a model increase, the performance of the models decreases:
@@ -86,10 +96,5 @@ The general flow of operations goes as follows:
 
 This runs the layers in the logical order defined by the architecture. Uses hardcoded values for striding and padding. Implements downsampling and pooling as needed. FC still applied at end.
 
-The repeated cudaMalloc/free stems from the fact that copying the entire structure over to the GPU seems to result in a OOM error so thats a bug I'll need to address in the next version.
-
 ### Top-K Results
 Using the results from the Fully Connected layer, I get the K highest scored indices. I copied down the imagenet classes file as a txt file and use that to build a vector of strings. Using the indices from the results, I provide the get the name of the class and the associated score.
-
-## Benchmarks
-TBD

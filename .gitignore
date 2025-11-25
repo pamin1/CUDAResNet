@@ -1,3 +1,5 @@
 build
 .vscode
 .obsidian
+cifar-10-batches-bin/
+env/

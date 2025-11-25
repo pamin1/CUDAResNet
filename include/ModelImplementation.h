@@ -2,8 +2,15 @@
 #include "ResNetDev.h"
 #include <iostream>
 
-float *launchModel(const ResNet18 &model, const float *image, float *out)
+float *launchModel(const ResNet18 &model, const float *image)
 {
+    float *out;
+    int dim = computeDim(IMAGE_DIM, 2, 3, model.conv1.kernelSize);
+    size_t outSize = dim * dim * model.conv1.outputSize;
+
+    CHECK_ERROR(cudaMalloc((void **)&out, outSize * sizeof(float)));
+    CHECK_ERROR(cudaMemset(out, 0, outSize * sizeof(float)));
+
     launchConvKernel((float *)image, out, model.conv1, model.bn1, IMAGE_DIM, 2, 3);
     cudaDeviceSynchronize();
 
@@ -22,7 +29,6 @@ float *launchModel(const ResNet18 &model, const float *image, float *out)
 
     // free this layer
     cudaFree(temp_pool);
-    std::cout << "Conv1 + MaxPool complete\n";
 
     // ------------------------------------------
     // LAYER 1
@@ -33,7 +39,6 @@ float *launchModel(const ResNet18 &model, const float *image, float *out)
                   56, // inputW
                   1); // stride=1
     cudaDeviceSynchronize();
-    std::cout << "Layer1.0 complete\n";
 
     // block 1
     runBasicBlock(model.layer1[1], out, out,
@@ -42,7 +47,6 @@ float *launchModel(const ResNet18 &model, const float *image, float *out)
                   56, // inputW
                   1); // stride=1
     cudaDeviceSynchronize();
-    std::cout << "Layer1.1 complete\n";
 
     // ------------------------------------------
     // LAYER 2
@@ -53,7 +57,6 @@ float *launchModel(const ResNet18 &model, const float *image, float *out)
                   56, // inputW
                   2); // stride=2 (downsample)
     cudaDeviceSynchronize();
-    std::cout << "Layer2.0 complete\n";
 
     // block 1
     runBasicBlock(model.layer2[1], out, out,
@@ -62,7 +65,6 @@ float *launchModel(const ResNet18 &model, const float *image, float *out)
                   28,  // inputW
                   1);  // stride=1
     cudaDeviceSynchronize();
-    std::cout << "Layer2.1 complete\n";
 
     // ------------------------------------------
     // LAYER 3
@@ -73,7 +75,6 @@ float *launchModel(const ResNet18 &model, const float *image, float *out)
                   28,  // inputW
                   2);  // stride=2 (downsample)
     cudaDeviceSynchronize();
-    std::cout << "Layer3.0 complete\n";
 
     // block 1
     runBasicBlock(model.layer3[1], out, out,
@@ -82,7 +83,6 @@ float *launchModel(const ResNet18 &model, const float *image, float *out)
                   14,  // inputW
                   1);  // stride=1
     cudaDeviceSynchronize();
-    std::cout << "Layer3.1 complete\n";
 
     // ------------------------------------------
     // LAYER 4
@@ -93,7 +93,6 @@ float *launchModel(const ResNet18 &model, const float *image, float *out)
                   14,  // inputW
                   2);  // stride=2 (downsample)
     cudaDeviceSynchronize();
-    std::cout << "Layer4.0 complete\n";
 
     // block 1
     runBasicBlock(model.layer4[1], out, out,
@@ -102,7 +101,6 @@ float *launchModel(const ResNet18 &model, const float *image, float *out)
                   7,   // inputW
                   1);  // stride=1
     cudaDeviceSynchronize();
-    std::cout << "Layer4.1 complete\n";
 
     // ADAPTIVE AVERAGE POOL
     float *pooled_out;
@@ -110,7 +108,6 @@ float *launchModel(const ResNet18 &model, const float *image, float *out)
 
     launchAdaptiveAvgPoolKernel(out, pooled_out, 7, 7, 512);
     cudaDeviceSynchronize();
-    std::cout << "AdaptiveAvgPool complete\n";
 
     // ------------------------------------------
     // FULLY CONNECTED
@@ -119,7 +116,6 @@ float *launchModel(const ResNet18 &model, const float *image, float *out)
 
     launchFCKernel(pooled_out, final_out, model.fc, 512, 1000);
     cudaDeviceSynchronize();
-    std::cout << "FC complete\n";
 
     // copy back
     float *h_results = new float[1000];
@@ -127,6 +123,6 @@ float *launchModel(const ResNet18 &model, const float *image, float *out)
 
     cudaFree(pooled_out);
     cudaFree(final_out);
-
+    cudaFree(out);
     return h_results;
 };

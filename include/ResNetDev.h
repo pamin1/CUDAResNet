@@ -1,46 +1,62 @@
 #ifndef RESNETDEV_H
 #define RESNETDEV_H
 
-struct ConvLayerDev
+struct ConvLayer
 {
-  int outputSize;
-  int inputSize;
-  int kernelSize; // guaranteed square kernel shapes
-  const float *d_weight;
+    int outputSize;
+    int inputSize;
+    int kernelSize; // guaranteed square kernel shapes
+    const float *d_weight;
 };
 
-struct BatchNormDev
+struct BatchNorm
 {
-  int numFeatures;
-  const float *d_weight;
-  const float *d_bias;
-  const float *d_runningMean;
-  const float *d_runningVar;
+    int numFeatures;
+    const float *d_weight;
+    const float *d_bias;
+    const float *d_runningMean;
+    const float *d_runningVar;
 };
 
-struct FullyConnectedDev
+struct FullyConnected
 {
-  int outputSize;
-  int inputSize;
-  const float *d_weight;
-  const float *d_bias;
+    int outputSize;
+    int inputSize;
+    const float *d_weight;
+    const float *d_bias;
 };
 
-struct DownsampleDev
+struct Downsample
 {
-  ConvLayerDev weight; // should be a 1x1 conv layer
-  BatchNormDev bn;
+    ConvLayer weight; // should be a 1x1 conv layer
+    BatchNorm bn;
 };
 
-struct BasicBlockDev
+struct BasicBlock
 {
-  ConvLayerDev conv1;
-  BatchNormDev bn1;
-  ConvLayerDev conv2;
-  BatchNormDev bn2;
+    ConvLayer conv1;
+    BatchNorm bn1;
+    ConvLayer conv2;
+    BatchNorm bn2;
 
-  bool hasDownsample;
-  DownsampleDev ds;
+    bool hasDownsample;
+    Downsample ds;
+};
+
+struct ResNet18
+{
+    // Initial layer
+    ConvLayer conv1;
+    BatchNorm bn1;
+
+    // 4 stages, each with 2 BasicBlocks
+    BasicBlock layer1[2];
+    BasicBlock layer2[2];
+    BasicBlock layer3[2];
+    BasicBlock layer4[2];
+
+    // Final classifier
+    FullyConnected fc;
 };
 
 #endif

@@ -1,10 +1,10 @@
 #include <iostream>
 #include <opencv2/opencv.hpp>
 
-class ImageClassifier
+class ImageParse
 {
 public:
-  explicit ImageClassifier(std::string path); // only allow constrcutor with
+  explicit ImageParse(std::string path); // only allow constrcutor with
                                               // image path (no default)
   float *getHostImage()
   {

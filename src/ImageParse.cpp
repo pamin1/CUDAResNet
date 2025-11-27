@@ -1,6 +1,6 @@
-#include "ImageClassifier.h"
+#include "ImageParse.h"
 
-ImageClassifier::ImageClassifier(std::string path)
+ImageParse::ImageParse(std::string path)
 {
   cv::Mat image = cv::imread(path, cv::IMREAD_COLOR);
 

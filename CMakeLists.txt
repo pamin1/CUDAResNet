@@ -9,11 +9,12 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CUDA_STANDARD 17)
 set(CMAKE_CUDA_STANDARD_REQUIRED ON)
 
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
 find_package(OpenCV REQUIRED)
 find_package(nlohmann_json CONFIG REQUIRED)
 find_package(ZLIB REQUIRED)
-
-# This finds the CUDA toolkit and gives you imported targets like CUDA::cudart
+find_package(fmt REQUIRED)
 find_package(CUDAToolkit REQUIRED)
 
 # Grab your sources (.cpp and any .cu)
@@ -36,6 +37,7 @@ target_link_libraries(resnet PRIVATE
     ZLIB::ZLIB
     ${OpenCV_LIBS}
     CUDA::cudart
+    fmt::fmt
 )
 
 # (optional but nice if/when you add real kernels)

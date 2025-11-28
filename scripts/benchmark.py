@@ -6,7 +6,7 @@ import time
 from torchvision.datasets import CIFAR10
 import os
 
-sample_size = 250
+sample_size = 1000
 
 def loadCifar():
     dataset = CIFAR10(root="./assets", train=False, download=True)

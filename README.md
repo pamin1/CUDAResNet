@@ -23,8 +23,18 @@ Run:
 ./resnet
 ```
 
-To modify the input image, add image to `assets` folder and update the image used in the main function.
+## Performance Benchmarks
+### Accuracy
+Using the same weights across all test groups so the inferences are deterministic, thus accuracy testing will be redundant.
 
+### v1.0.0: Naive (1000 samples)
+| Implementation | Latency (ms/img) | Throughput (Hz) | Speedup vs Custom |
+| :------------- | :--------------: | :-------------: | :---------------: |
+| PyTorch CUDA   |      4.281       |     233.58      |       9.16x       |
+| PyTorch CPU    |      18.550      |      53.92      |       2.11x       |
+| Custom CUDA    |      39.208      |      25.51      |       1.00x       |
+
+Naive implementation consistently ~9x slower than CUDA accelerated PyTorch, only 2x slower than PyTorch CPU. Removed variable sample size; implemented warmup of 50 inferences before beginning timing and commited to 1000 samples for testing.
 ## Why ResNet?
 ### Vanishing Gradient Problem
 As the number of layers in a model increase, the performance of the models decreases:
@@ -86,10 +96,5 @@ The general flow of operations goes as follows:
 
 This runs the layers in the logical order defined by the architecture. Uses hardcoded values for striding and padding. Implements downsampling and pooling as needed. FC still applied at end.
 
-The repeated cudaMalloc/free stems from the fact that copying the entire structure over to the GPU seems to result in a OOM error so thats a bug I'll need to address in the next version.
-
 ### Top-K Results
 Using the results from the Fully Connected layer, I get the K highest scored indices. I copied down the imagenet classes file as a txt file and use that to build a vector of strings. Using the indices from the results, I provide the get the name of the class and the associated score.
-
-## Benchmarks
-TBD

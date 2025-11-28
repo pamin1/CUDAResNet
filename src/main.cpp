@@ -1,203 +1,91 @@
-#include "ModelParse.h"
-#include "ImageClassifier.h"
+#include "ImageParse.h"
 #include "Kernel.cuh"
-#include <labels.h>
+#include "ModelImplementation.h"
+#include "ModelParse.h"
+#include <chrono>
+#include <fmt/format.h>
+
+constexpr int sampleSize = 1000;
+constexpr int imgSize = 224 * 224 * 3;
+constexpr size_t byteSize = imgSize * sizeof(float);
 
 int main()
 {
-    // create an image classifier object
-    ImageClassifier ic("assets/dog.png");
-
-    // grab the host image
-    float *hImage = ic.getHostImage();
-    for (int i = 0; i < ic.size; i++)
-    {
-        if (hImage[i] == 0)
-        {
-            std::cout << "Host image uninitialized?\n"; // shouldnt be any non zero pixels usually
-        }
-    }
-    std::cout << "Host image initialized\n";
-
-    // parse model json
+    // parse model
     ModelParse mp("assets/resnet18_manifest.json", "assets/resnet18_fp32.npz");
     ResNet18 model = mp.generateModel();
-
     mp.printResNet18(model);
 
-    size_t free_mem, total_mem;
-    cudaMemGetInfo(&free_mem, &total_mem);
-    std::cout << "GPU Memory - Free: " << free_mem / (1024.0 * 1024.0)
-              << " MB, Total: " << total_mem / (1024.0 * 1024.0) << " MB" << std::endl;
-    std::cout << "Used: " << (total_mem - free_mem) / (1024.0 * 1024.0) << " MB" << std::endl;
-
-    // // copy image to GPU
-    float *dImage;
-    size_t size = 224 * 224 * 3 * sizeof(float);
-    CHECK_ERROR(cudaMalloc((void **)&dImage, size));
-    cudaMemcpy(dImage, hImage, size, cudaMemcpyHostToDevice);
-
-    // // initialize output array
-    float *out;
-    int dim = computeDim(IMAGE_DIM, 2, 3, model.conv1.kernelSize);
-    size_t outSize = dim * dim * model.conv1.outputSize;
-    CHECK_ERROR(cudaMalloc((void **)&out, outSize * sizeof(float)));
-    CHECK_ERROR(cudaMemset(out, 0, outSize * sizeof(float)));
-
-    // MODEL IMPLEMENT
-    // TODO: push this all into a function(s)
-
-    // ------------------------------------------
-    // conv1 + bn1
-    // conv1: 224×224×3 to 112×112×64
-    launchConvKernel(dImage, out, model.conv1, model.bn1, IMAGE_DIM, 2, 3);
-    cudaDeviceSynchronize();
-
-    // ReLU
-    launchReLUKernel(out, out, 64 * 112 * 112);
-    cudaDeviceSynchronize();
-
-    // max pool: 112×112×64 to 56×56×64
-    float *temp_pool;
-    cudaMalloc(&temp_pool, 64 * 56 * 56 * sizeof(float));
-    launchMaxPoolKernel(out, temp_pool, 112, 112, 64, 3, 2, 1);
-    cudaDeviceSynchronize();
-
-    // copy pooled output back to main buffer
-    cudaMemcpy(out, temp_pool, 64 * 56 * 56 * sizeof(float), cudaMemcpyDeviceToDevice);
-
-    // free this layer
-    cudaFree(temp_pool);
-    std::cout << "Conv1 + MaxPool complete\n";
-
-    // ------------------------------------------
-    // LAYER 1
-    // block 0
-    runBasicBlock(model.layer1[0], out, out,
-                  64, // inputChannels
-                  56, // inputH
-                  56, // inputW
-                  1); // stride=1
-    cudaDeviceSynchronize();
-    std::cout << "Layer1.0 complete\n";
-
-    // block 1
-    runBasicBlock(model.layer1[1], out, out,
-                  64, // inputChannels
-                  56, // inputH
-                  56, // inputW
-                  1); // stride=1
-    cudaDeviceSynchronize();
-    std::cout << "Layer1.1 complete\n";
-
-    // ------------------------------------------
-    // LAYER 2
-    // block 0 (with downsample)
-    runBasicBlock(model.layer2[0], out, out,
-                  64, // inputChannels
-                  56, // inputH
-                  56, // inputW
-                  2); // stride=2 (downsample)
-    cudaDeviceSynchronize();
-    std::cout << "Layer2.0 complete\n";
-
-    // block 1
-    runBasicBlock(model.layer2[1], out, out,
-                  128, // inputChannels
-                  28,  // inputH
-                  28,  // inputW
-                  1);  // stride=1
-    cudaDeviceSynchronize();
-    std::cout << "Layer2.1 complete\n";
-
-    // ------------------------------------------
-    // LAYER 3
-    // block 0 (with downsample)
-    runBasicBlock(model.layer3[0], out, out,
-                  128, // inputChannels
-                  28,  // inputH
-                  28,  // inputW
-                  2);  // stride=2 (downsample)
-    cudaDeviceSynchronize();
-    std::cout << "Layer3.0 complete\n";
-
-    // block 1
-    runBasicBlock(model.layer3[1], out, out,
-                  256, // inputChannels
-                  14,  // inputH
-                  14,  // inputW
-                  1);  // stride=1
-    cudaDeviceSynchronize();
-    std::cout << "Layer3.1 complete\n";
-
-    // ------------------------------------------
-    // LAYER 4
-    // block 0 (with downsample)
-    runBasicBlock(model.layer4[0], out, out,
-                  256, // inputChannels
-                  14,  // inputH
-                  14,  // inputW
-                  2);  // stride=2 (downsample)
-    cudaDeviceSynchronize();
-    std::cout << "Layer4.0 complete\n";
-
-    // block 1
-    runBasicBlock(model.layer4[1], out, out,
-                  512, // inputChannels
-                  7,   // inputH
-                  7,   // inputW
-                  1);  // stride=1
-    cudaDeviceSynchronize();
-    std::cout << "Layer4.1 complete\n";
-
-    // ADAPTIVE AVERAGE POOL
-    float *pooled_out;
-    cudaMalloc(&pooled_out, 512 * sizeof(float));
-
-    launchAdaptiveAvgPoolKernel(out, pooled_out, 7, 7, 512);
-    cudaDeviceSynchronize();
-    std::cout << "AdaptiveAvgPool complete\n";
-
-    // ------------------------------------------
-    // FULLY CONNECTED
-    float *final_out;
-    cudaMalloc(&final_out, 1000 * sizeof(float));
-
-    launchFCKernel(pooled_out, final_out, model.fc, 512, 1000);
-    cudaDeviceSynchronize();
-    std::cout << "FC complete\n";
-
-    // ------------------------------------------
-    // copy back
-    float *h_results = new float[1000];
-    cudaMemcpy(h_results, final_out, 1000 * sizeof(float), cudaMemcpyDeviceToHost);
-
-    std::vector<std::string> labels = loadImageNetLabels("assets/imagenet_classes.txt");
-
-    // find top-5 predictions
-    std::cout << "\nTop-5 Predictions:\n";
-    for (int i = 0; i < 5; i++)
+    // load images onto cpu
+    std::vector<float> h_images(imgSize * sampleSize);
+    for (int i = 0; i < sampleSize; i++)
     {
-        float max_val = -INFINITY;
-        int max_idx = -1;
-        for (int j = 0; j < 1000; j++)
-        {
-            if (h_results[j] > max_val)
-            {
-                max_val = h_results[j];
-                max_idx = j;
-            }
-        }
-        std::cout << max_idx << ": " << labels[max_idx] << " (score: " << max_val << ")\n";
-        h_results[max_idx] = -INFINITY;
+        std::string path = fmt::format("assets/cifar10/images/image_{:04d}.png", i);
+        ImageParse im = ImageParse(path);
+
+        float *h_image = im.getHostImage();
+
+        std::memcpy(&h_images[i * imgSize], h_image, byteSize);
+    }
+    std::cout << "Loaded images\n";
+
+    // load classes into map
+    std::unordered_map<int, std::string> map;
+    std::ifstream file("assets/imagenet_classes.txt");
+    std::string line;
+    int i = 0;
+
+    while (std::getline(file, line))
+    {
+        map[i] = line;
+        i++;
     }
 
-    // Cleanup
-    delete[] h_results;
-    cudaFree(pooled_out);
-    cudaFree(final_out);
-    mp.freeModel(model);
-    // ------------------------------------------
+    file.close();
 
+    // copy over to gpu
+    float *d_images;
+    CHECK_ERROR(cudaMalloc((void **)&d_images, byteSize * sampleSize));
+    cudaMemcpy(d_images, h_images.data(), byteSize * sampleSize, cudaMemcpyHostToDevice);
+
+    // gpu warmup
+    for (int i = 0; i < 50; i++)
+    {
+        float *conf = launchModel(model, d_images + (i * imgSize));
+    }
+
+    // run benchmarking
+    double totalTime = 0;
+    for (int i = 0; i < sampleSize; i++)
+    {
+        const auto start = std::chrono::high_resolution_clock::now();
+        float *conf = launchModel(model, d_images + (i * imgSize));
+        int predicted_class = 0;
+        float max_score = conf[0];
+        for (int i = 1; i < 1000; i++)
+        {
+            if (conf[i] > max_score)
+            {
+                max_score = conf[i];
+                predicted_class = i;
+            }
+        }
+        const auto end = std::chrono::high_resolution_clock::now();
+        const std::chrono::duration<double, std::milli> duration = end - start;
+        totalTime += duration.count();
+
+        // uncomment for inference verification
+        std::string img = fmt::format("image_{:04d}", i);
+        // std::cout << fmt::format("{:<12} Class: {:<30} Confidence: {:>8.4f}  Time: {:>7.2f} ms\n", img, map[predicted_class], max_score, duration.count());
+    }
+
+    // total timing metrics
+    std::cout << "Total Time: " << totalTime << " ms\n"
+              << "Average Time: " << totalTime / sampleSize << " ms/img\n"
+              << "Average Freq: " << 1000 * sampleSize / totalTime << " Hz\n";
+
+    // cleanup
+    mp.freeModel(model);
+    cudaFree(d_images);
     return 0;
 }

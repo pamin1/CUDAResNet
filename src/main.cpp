@@ -29,6 +29,20 @@ int main()
     }
     std::cout << "Loaded images\n";
 
+    // load classes into map
+    std::unordered_map<int, std::string> map;
+    std::ifstream file("assets/imagenet_classes.txt");
+    std::string line;
+    int i = 0;
+
+    while (std::getline(file, line))
+    {
+        map[i] = line;
+        i++;
+    }
+
+    file.close();
+
     // copy over to gpu
     float *d_images;
     CHECK_ERROR(cudaMalloc((void **)&d_images, byteSize * sampleSize));
@@ -61,7 +75,12 @@ int main()
         totalTime += duration.count();
 
         // uncomment for inference verification
-        // std::cout << "Class: " << predicted_class << ",\tConfidence: " << max_score << ",\tTime: " << duration.count() << "\n";
+        std::string img = fmt::format("image_{:04d}", i);
+        std::cout << fmt::format("{:<12} Class: {:<30} Confidence: {:>8.4f}  Time: {:>7.2f} ms\n",
+                                 img,
+                                 map[predicted_class],
+                                 max_score,
+                                 duration.count());
     }
 
     // total timing metrics

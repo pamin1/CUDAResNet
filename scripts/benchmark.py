@@ -25,10 +25,11 @@ def loadCifar():
             f.write(f"{label}\n")
 
 
-def launchTorch():
+def launchTorch(use_cuda):
     # Load pretrained ResNet-18
     model = models.resnet18(weights=models.ResNet18_Weights.IMAGENET1K_V1)
-    model = model.cuda()
+    if use_cuda:
+        model = model.cuda()
     model.eval()
 
     # ImageNet normalization
@@ -47,31 +48,41 @@ def launchTorch():
         classes = [line.strip() for line in f.readlines()]
 
     print("Warming up PyTorch...")
-    dummy_input = torch.randn(1, 3, 224, 224).cuda()
+    if use_cuda:
+        dummy_input = torch.randn(1, 3, 224, 224).cuda()
+    else:
+        dummy_input = torch.randn(1, 3, 224, 224)
+
     for _ in range(50):
         with torch.no_grad():
             _ = model(dummy_input)
-    torch.cuda.synchronize()
+
+    if use_cuda:
+        torch.cuda.synchronize()
     print("Warmup complete, starting benchmark...")
 
     # Process images
     inference_times = []
-    for i in range(sample_size):  # Adjust number as needed
+    for i in range(sample_size):
         img_path = f"{pwd}/assets/cifar10/images/image_{i:04d}.png"
 
         # Load and preprocess
         img = Image.open(img_path).convert("RGB")
         input_tensor = preprocess(img)
-        input_batch = input_tensor.unsqueeze(0).cuda()
+        input_batch = input_tensor.unsqueeze(0)
+        if use_cuda:
+            input_batch = input_batch.cuda()
 
         # Inference with timing
-        torch.cuda.synchronize()
+        if use_cuda:
+            torch.cuda.synchronize()
         start = time.perf_counter()
 
         with torch.no_grad():
             output = model(input_batch)
 
-        torch.cuda.synchronize()
+        if use_cuda:
+            torch.cuda.synchronize()
         end = time.perf_counter()
 
         # Get prediction
@@ -83,17 +94,13 @@ def launchTorch():
         duration_ms = (end - start) * 1000
         inference_times.append(duration_ms)
 
-        print(
-            f"image_{i:04d}   Class: {predicted_class:<30} Confidence: {confidence:>8.4f}  Time: {duration_ms:>7.2f} ms"
-        )
-        
     # Calculate and print summary statistics
     total_time = sum(inference_times)
-    s_per_img = total_time / sample_size
+    ms_per_img = total_time / sample_size
     img_per_s = 1000 * sample_size / total_time
-    
+
     print(f"Total Time: {total_time:.2f} ms")
-    print(f"Avg Time: {s_per_img:.4f} s/img")
+    print(f"Avg Time: {ms_per_img:.2f} ms/img")
     print(f"Avg Freq: {img_per_s:.2f} Hz")
 
 
@@ -105,7 +112,10 @@ def main():
     else:
         print("CIFAR-10 images already exist. Skipping download.")
 
-    launchTorch()
+    print("CPU Stats:")
+    launchTorch(False)
+    print("\nGPU Stats:")
+    launchTorch(True)
 
 
 if __name__ == "__main__":

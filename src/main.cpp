@@ -76,11 +76,7 @@ int main()
 
         // uncomment for inference verification
         std::string img = fmt::format("image_{:04d}", i);
-        std::cout << fmt::format("{:<12} Class: {:<30} Confidence: {:>8.4f}  Time: {:>7.2f} ms\n",
-                                 img,
-                                 map[predicted_class],
-                                 max_score,
-                                 duration.count());
+        // std::cout << fmt::format("{:<12} Class: {:<30} Confidence: {:>8.4f}  Time: {:>7.2f} ms\n", img, map[predicted_class], max_score, duration.count());
     }
 
     // total timing metrics

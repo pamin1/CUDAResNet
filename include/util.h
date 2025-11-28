@@ -8,24 +8,24 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#define CHECK_ERROR(ans)                                                                           \
-  {                                                                                                \
-    gpuAssert((ans), __FILE__, __LINE__);                                                          \
-  }
+#define CHECK_ERROR(ans)                      \
+    {                                         \
+        gpuAssert((ans), __FILE__, __LINE__); \
+    }
 
 inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort = true)
 {
-  if (code != cudaSuccess)
-  {
-    fprintf(stderr, "GPUassert: %s %s %d\n", cudaGetErrorString(code), file, line);
-    if (abort)
-      exit(code);
-  }
+    if (code != cudaSuccess)
+    {
+        fprintf(stderr, "GPUassert: %s %s %d\n", cudaGetErrorString(code), file, line);
+        if (abort)
+            exit(code);
+    }
 }
 
 inline int computeDim(int inputDim, int stride, int pad, int kernelDim)
 {
-  return (inputDim + 2 * pad - kernelDim) / stride + 1;
+    return (inputDim + 2 * pad - kernelDim) / stride + 1;
 }
 
 #endif

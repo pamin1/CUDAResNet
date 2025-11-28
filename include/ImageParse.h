@@ -3,15 +3,15 @@
 
 class ImageParse
 {
-public:
-  explicit ImageParse(std::string path); // only allow constrcutor with
-                                              // image path (no default)
-  float *getHostImage()
-  {
-    return host;
-  }
-  static const size_t size = 224 * 224 * 3;
+  public:
+    explicit ImageParse(std::string path); // only allow constrcutor with
+                                           // image path (no default)
+    float *getHostImage()
+    {
+        return host;
+    }
+    static const size_t size = 224 * 224 * 3;
 
-private:
-  float host[size];
+  private:
+    float host[size];
 };

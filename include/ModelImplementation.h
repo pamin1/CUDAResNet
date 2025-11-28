@@ -1,6 +1,5 @@
 #include "Kernel.cuh"
 #include "ResNetDev.h"
-#include <iostream>
 
 float *launchModel(const ResNet18 &model, const float *image)
 {
@@ -125,4 +124,4 @@ float *launchModel(const ResNet18 &model, const float *image)
     cudaFree(final_out);
     cudaFree(out);
     return h_results;
-};
+}

@@ -46,6 +46,14 @@ def launchTorch():
     with open(f"{pwd}/assets/imagenet_classes.txt") as f:
         classes = [line.strip() for line in f.readlines()]
 
+    print("Warming up PyTorch...")
+    dummy_input = torch.randn(1, 3, 224, 224).cuda()
+    for _ in range(50):
+        with torch.no_grad():
+            _ = model(dummy_input)
+    torch.cuda.synchronize()
+    print("Warmup complete, starting benchmark...")
+
     # Process images
     inference_times = []
     for i in range(sample_size):  # Adjust number as needed

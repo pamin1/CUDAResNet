@@ -86,15 +86,4 @@ On the first version, I had two separate structs for holding the model data. One
 After refactoring, the memory allocation step has been integrated into one setup function such that the actual implementation does not require copying and freeing later on. This all fits on the comfortably on the GPU since the ResNet18 architecture is relatively small (~11M params, ~44MB). Similar to initialization, freeing is also all done in one function.
 
 ### Model Implementation
-The general flow of operations goes as follows:
-1. Copy Image
-2. Copy Layer n
-3. Convolve
-4. Save Image in place
-5. Free Layer n
-6. Repeat from Step 2
-
-This runs the layers in the logical order defined by the architecture. Uses hardcoded values for striding and padding. Implements downsampling and pooling as needed. FC still applied at end.
-
-### Top-K Results
-Using the results from the Fully Connected layer, I get the K highest scored indices. I copied down the imagenet classes file as a txt file and use that to build a vector of strings. Using the indices from the results, I provide the get the name of the class and the associated score.
+The implementation runs the layers in the logical order defined by the architecture. I use hardcoded values for striding and padding.

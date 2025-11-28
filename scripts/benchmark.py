@@ -1,105 +1,104 @@
 import torch
 import torchvision.models as models
 import torchvision.transforms as transforms
-from torchvision.datasets import CIFAR10
+from PIL import Image
 import time
-import numpy as np
+from torchvision.datasets import CIFAR10
+import os
 
-BENCHMARK_SAMPLE_SIZE = 1000
+sample_size = 250
+
+def loadCifar():
+    dataset = CIFAR10(root="./assets", train=False, download=True)
+
+    os.makedirs("assets/cifar10/images", exist_ok=True)
+
+    labels_list = []
+    for i in range(min(1000, len(dataset))):
+        img, label = dataset[i]
+        img = img.resize((224, 224))
+        img.save(f"assets/cifar10/images/image_{i:04d}.png")
+        labels_list.append(label)
+
+    with open("assets/cifar10/labels.txt", "w") as f:
+        for label in labels_list:
+            f.write(f"{label}\n")
 
 
-def benchmark_pytorch_resnet18():
-    # Setup
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    print(f"Using device: {device}")
+def launchTorch():
+    # Load pretrained ResNet-18
+    model = models.resnet18(weights=models.ResNet18_Weights.IMAGENET1K_V1)
+    model = model.cuda()
+    model.eval()
 
-    # Load pretrained ResNet18
-    model = models.resnet18(pretrained=True)
-    model = model.to(device)
-    model.eval()  # Set to evaluation mode
-
-    # Load CIFAR-10 test set
-    transform = transforms.Compose(
+    # ImageNet normalization
+    preprocess = transforms.Compose(
         [
-            transforms.Resize(224),  # ResNet expects 224x224
+            transforms.Resize(256),
+            transforms.CenterCrop(224),
             transforms.ToTensor(),
             transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
         ]
     )
 
-    cifar_test = CIFAR10(root="./assets", train=False, download=True, transform=transform)
+    # Load class labels
+    pwd = os.getcwd()
+    with open(f"{pwd}/assets/imagenet_classes.txt") as f:
+        classes = [line.strip() for line in f.readlines()]
 
-    # Preload images to GPU
-    print(f"Loading {BENCHMARK_SAMPLE_SIZE} images to GPU...")
-    images = []
-    labels = []
-    for i in range(BENCHMARK_SAMPLE_SIZE):
-        img, label = cifar_test[i]
-        images.append(img.unsqueeze(0).to(device))  # Add batch dimension
-        labels.append(label)
+    # Process images
+    inference_times = []
+    for i in range(sample_size):  # Adjust number as needed
+        img_path = f"{pwd}/assets/cifar10/images/image_{i:04d}.png"
 
-    print(f"Loaded {len(images)} images to GPU")
+        # Load and preprocess
+        img = Image.open(img_path).convert("RGB")
+        input_tensor = preprocess(img)
+        input_batch = input_tensor.unsqueeze(0).cuda()
 
-    # Warmup
-    print("Warming up...")
-    with torch.no_grad():
-        for i in range(10):
-            _ = model(images[i % 10])
+        # Inference with timing
+        torch.cuda.synchronize()
+        start = time.perf_counter()
 
-    # Synchronize before benchmark
-    torch.cuda.synchronize()
+        with torch.no_grad():
+            output = model(input_batch)
 
-    # Benchmark
-    print("Running benchmark...")
-    start_event = torch.cuda.Event(enable_timing=True)
-    end_event = torch.cuda.Event(enable_timing=True)
+        torch.cuda.synchronize()
+        end = time.perf_counter()
 
-    with torch.no_grad():
-        start_event.record()
+        # Get prediction
+        probabilities = torch.nn.functional.softmax(output[0], dim=0)
+        top_prob, top_idx = torch.topk(probabilities, 1)
 
-        for i in range(BENCHMARK_SAMPLE_SIZE):
-            output = model(images[i])
+        predicted_class = classes[top_idx.item()]
+        confidence = top_prob.item()
+        duration_ms = (end - start) * 1000
+        inference_times.append(duration_ms)
 
-        end_event.record()
+        print(
+            f"image_{i:04d}   Class: {predicted_class:<30} Confidence: {confidence:>8.4f}  Time: {duration_ms:>7.2f} ms"
+        )
+        
+    # Calculate and print summary statistics
+    total_time = sum(inference_times)
+    s_per_img = total_time / sample_size
+    img_per_s = 1000 * sample_size / total_time
+    
+    print(f"Total Time: {total_time:.2f} ms")
+    print(f"Avg Time: {s_per_img:.4f} s/img")
+    print(f"Avg Freq: {img_per_s:.2f} Hz")
 
-    torch.cuda.synchronize()
 
-    total_time_ms = start_event.elapsed_time(end_event)
-    avg_time_ms = total_time_ms / BENCHMARK_SAMPLE_SIZE
-    throughput = (BENCHMARK_SAMPLE_SIZE * 1000.0) / total_time_ms
+def main():
+    if not os.path.exists("assets/cifar10/images"):
+        print("CIFAR-10 images not found. Downloading and extracting...")
+        loadCifar()
+        print("CIFAR-10 images ready!")
+    else:
+        print("CIFAR-10 images already exist. Skipping download.")
 
-    print("\n=== PyTorch CUDA Benchmark Results ===")
-    print(f"Total time: {total_time_ms:.2f} ms")
-    print(f"Average per image: {avg_time_ms:.2f} ms")
-    print(f"Throughput: {throughput:.2f} img/s")
-
-    # Memory usage
-    print(f"\nGPU Memory allocated: {torch.cuda.memory_allocated() / 1024**2:.2f} MB")
-    print(f"GPU Memory reserved: {torch.cuda.memory_reserved() / 1024**2:.2f} MB")
-
-    # Sample prediction
-    print("\n=== Sample Predictions ===")
-    cifar_classes = [
-        "airplane",
-        "automobile",
-        "bird",
-        "cat",
-        "deer",
-        "dog",
-        "frog",
-        "horse",
-        "ship",
-        "truck",
-    ]
-
-    with torch.no_grad():
-        for i in range(5):
-            output = model(images[i])
-            pred = output.argmax(dim=1).item()
-            print(
-                f"Image {i} - True: {cifar_classes[labels[i]]}, Predicted class: {pred}"
-            )
+    launchTorch()
 
 
 if __name__ == "__main__":
-    benchmark_pytorch_resnet18()
+    main()

@@ -5,7 +5,7 @@
 #include <chrono>
 #include <fmt/format.h>
 
-constexpr int sampleSize = 50;
+constexpr int sampleSize = 250;
 constexpr int imgSize = 224 * 224 * 3;
 constexpr size_t byteSize = imgSize * sizeof(float);
 
@@ -49,7 +49,7 @@ int main()
     cudaMemcpy(d_images, h_images.data(), byteSize * sampleSize, cudaMemcpyHostToDevice);
 
     // gpu warmup
-    for (int i = 0; i < 10; i++)
+    for (int i = 0; i < 50; i++)
     {
         float *conf = launchModel(model, d_images + (i * imgSize));
     }
@@ -86,7 +86,7 @@ int main()
     // total timing metrics
     std::cout << "Total Time: " << totalTime << " ms\n"
               << "Average Time: " << totalTime / sampleSize << " ms/img\n"
-              << "Average Freq: " << sampleSize / totalTime << " Hz\n";
+              << "Average Freq: " << 1000 * sampleSize / totalTime << " Hz\n";
 
     // cleanup
     mp.freeModel(model);

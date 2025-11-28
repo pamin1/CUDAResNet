@@ -5,7 +5,7 @@
 #include <chrono>
 #include <fmt/format.h>
 
-constexpr int sampleSize = 1000;
+constexpr int sampleSize = 50;
 constexpr int imgSize = 224 * 224 * 3;
 constexpr size_t byteSize = imgSize * sizeof(float);
 
@@ -18,7 +18,7 @@ int main()
 
     // load images onto cpu
     std::vector<float> h_images(imgSize * sampleSize);
-    for (int i = 0; i < 1000; i++)
+    for (int i = 0; i < sampleSize; i++)
     {
         std::string path = fmt::format("assets/cifar10/images/image_{:04d}.png", i);
         ImageParse im = ImageParse(path);
@@ -56,7 +56,7 @@ int main()
 
     // run benchmarking
     double totalTime = 0;
-    for (int i = 0; i < 1000; i++)
+    for (int i = 0; i < sampleSize; i++)
     {
         const auto start = std::chrono::high_resolution_clock::now();
         float *conf = launchModel(model, d_images + (i * imgSize));

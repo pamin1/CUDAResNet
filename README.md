@@ -23,18 +23,18 @@ Run:
 ./resnet
 ```
 
-## Benchmarks
 ## Performance Benchmarks
+### Accuracy
+Using the same weights across all test groups so the inferences are deterministic, thus accuracy testing will be redundant.
 
-### v1.0.0: Naive
-| Sample Size | PyTorch (ms/img) | Custom CUDA (ms/img) | Speedup | PyTorch Throughput | Custom Throughput |
-| :---------: | :--------------: | :------------------: | :-----: | :----------------: | :---------------: |
-|     100     |       4.93       |        41.49         |  0.11x  |    202.80 img/s    |    24.10 img/s    |
-|     250     |       4.53       |        41.38         |  0.10x  |    220.86 img/s    |    24.16 img/s    |
-|     500     |       4.51       |        40.68         |  0.11x  |    221.91 img/s    |    24.58 img/s    |
-|    1000     |       4.44       |        41.33         |  0.10x  |    225.22 img/s    |    24.19 img/s    |
+### v1.0.0: Naive (1000 samples)
+| Implementation | Latency (ms/img) | Throughput (Hz) | Speedup vs Custom |
+| :------------- | :--------------: | :-------------: | :---------------: |
+| PyTorch CUDA   |      4.281       |     233.58      |       9.16x       |
+| PyTorch CPU    |      18.550      |      53.92      |       2.11x       |
+| Custom CUDA    |      39.208      |      25.51      |       1.00x       |
 
-Custom implementation consistently ~10x slower than PyTorch CUDA version.
+Naive implementation consistently ~9x slower than CUDA accelerated PyTorch, only 2x slower than PyTorch CPU. Removed variable sample size; implemented warmup of 50 inferences before beginning timing and commited to 1000 samples for testing.
 ## Why ResNet?
 ### Vanishing Gradient Problem
 As the number of layers in a model increase, the performance of the models decreases:

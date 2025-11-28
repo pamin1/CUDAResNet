@@ -10,17 +10,22 @@ ImageParse::ImageParse(std::string path)
         std::cerr << "Error: Could not open or find the image." << std::endl;
         return;
     }
-    // std::cout << "successful image load\n";
 
     cv::Mat rgb;
     cv::cvtColor(image, rgb, cv::COLOR_BGR2RGB);
 
-    // resize and scale down pixels
-    // cv::resize(rgb, rgb, cv::Size(224, 224), 0, 0, cv::INTER_LINEAR); // cifar is already resized
-    rgb.convertTo(rgb, CV_32FC3, 1.0 / 255.0);
+    // match PT resizing
+    cv::Mat resized;
+    cv::resize(rgb, resized, cv::Size(256, 256), 0, 0, cv::INTER_LINEAR);
 
-    // cv::imshow("rgb", rgb);
-    // cv::waitKey(0);
+    // center cropping
+    int cropX = (256 - 224) / 2; // = 16
+    int cropY = (256 - 224) / 2; // = 16
+    cv::Rect cropRegion(cropX, cropY, 224, 224);
+    cv::Mat cropped = resized(cropRegion);
+
+    // scale
+    cropped.convertTo(cropped, CV_32FC3, 1.0 / 255.0);
 
     // normalize
     const float mean[3] = {0.485f, 0.456f, 0.406f};
@@ -28,7 +33,7 @@ ImageParse::ImageParse(std::string path)
 
     for (int h = 0; h < 224; ++h)
     {
-        auto row = rgb.ptr<cv::Vec3f>(h);
+        auto row = cropped.ptr<cv::Vec3f>(h);
         for (int w = 0; w < 224; ++w)
         {
             size_t base = h * 224 + w;
@@ -37,4 +42,4 @@ ImageParse::ImageParse(std::string path)
             host[2 * 224 * 224 + base] = (row[w][2] - mean[2]) / stdv[2]; // B
         }
     }
-};
+}

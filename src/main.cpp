@@ -12,7 +12,7 @@
 #include <chrono>
 #include <fmt/format.h>
 
-constexpr int sampleSize = 50;
+constexpr int sampleSize = 500;
 constexpr int imgSize = 224 * 224 * 3;
 constexpr size_t byteSize = imgSize * sizeof(float);
 

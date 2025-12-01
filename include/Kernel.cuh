@@ -10,6 +10,7 @@
 
 #include "ResNetDev.h"
 #include "util.h"
+#include <assert.h>
 #include <cuda_runtime.h>
 #include <device_launch_parameters.h>
 

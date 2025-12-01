@@ -9,38 +9,88 @@
 
 __global__ void conv2d_kernel(const float *input, const float *weight, const float *bnWeight, const float *bnBias, const float *bnMean, const float *bnVar, float *output, int in_channels, int out_channels, int H, int W, int outH, int outW, int kernel_size, int stride, int padding)
 {
+    // shared memory - initialize the weights by channel
+    // tile each channel
+    extern __shared__ float smem[];
+
+    int hOutStart = blockIdx.y * blockDim.y;
+    int wOutStart = blockIdx.x * blockDim.x;
+
+    int hInStart = hOutStart * stride - padding;
+    int wInStart = wOutStart * stride - padding;
+
+    int hTile = blockDim.y * stride + (kernel_size - 1);
+    int wTile = blockDim.x * stride + (kernel_size - 1);
+
+    int tid = threadIdx.y * blockDim.x + threadIdx.x;
+    int total_threads = blockDim.x * blockDim.y;
+    int total_elements = TILE_CHANNELS * hTile * wTile;
+
     int oc = blockIdx.z;
     int out_h = blockIdx.y * blockDim.y + threadIdx.y;
     int out_w = blockIdx.x * blockDim.x + threadIdx.x;
 
-    if (out_h >= outH || out_w >= outW)
-    {
-        return;
-    }
-
     float sum = 0.0f;
-    for (int ic = 0; ic < in_channels; ic++)
+    for (int ic = 0; ic < in_channels; ic += TILE_CHANNELS)
     {
-        for (int kh = 0; kh < kernel_size; kh++)
+        for (int i = tid; i < total_elements; i += total_threads)
         {
-            for (int kw = 0; kw < kernel_size; kw++)
-            {
-                int in_h = out_h * stride + kh - padding;
-                int in_w = out_w * stride + kw - padding;
+            int c = i / (hTile * wTile);
+            int h = (i / wTile) % hTile;
+            int w = i % wTile;
 
-                if (in_h >= 0 && in_h < H && in_w >= 0 && in_w < W)
+            int cGlobal = ic + c;
+            int hGlobal = hInStart + h;
+            int wGlobal = wInStart + w;
+
+            if ((hGlobal >= 0 && hGlobal < H) && (wGlobal >= 0 && wGlobal < W) && (cGlobal >= 0 && cGlobal < in_channels))
+            {
+                int globalIdx = cGlobal * H * W + hGlobal * W + wGlobal;
+                smem[i] = input[globalIdx];
+            }
+            else
+            {
+                smem[i] = 0.0f;
+            }
+        }
+        __syncthreads();
+
+        if (out_h < outH && out_w < outW)
+        {
+
+            for (int c = 0; c < TILE_CHANNELS && (ic + c) < in_channels; c++)
+            {
+                for (int kh = 0; kh < kernel_size; kh++)
                 {
-                    int input_idx = ic * H * W + in_h * W + in_w;
-                    int weight_idx = oc * in_channels * kernel_size * kernel_size + ic * kernel_size * kernel_size + kh * kernel_size + kw;
-                    sum += input[input_idx] * weight[weight_idx];
+                    for (int kw = 0; kw < kernel_size; kw++)
+                    {
+                        int hLocal = threadIdx.y * stride + kh;
+                        int wLocal = threadIdx.x * stride + kw;
+
+                        int smem_idx = c * hTile * wTile + hLocal * wTile + wLocal;
+                        int weight_idx = oc * in_channels * kernel_size * kernel_size + (ic + c) * kernel_size * kernel_size + kh * kernel_size + kw;
+
+                        if (smem_idx < total_elements)
+                        {
+                            sum += smem[smem_idx] * weight[weight_idx];
+                        }
+                    }
                 }
             }
         }
+        __syncthreads();
     }
-    int output_idx = oc * outH * outW + out_h * outW + out_w;
-    float scale = bnWeight[oc] / sqrtf(bnVar[oc] + EPSILON);
 
-    output[output_idx] = scale * (sum - bnMean[oc]) + bnBias[oc];
+    if (out_h < outH && out_w < outW)
+    {
+        int output_idx = oc * outH * outW + out_h * outW + out_w;
+
+        // Correct BatchNorm fusion formula
+        float scale = bnWeight[oc] / sqrtf(bnVar[oc] + EPSILON);
+        float bias = bnBias[oc] - scale * bnMean[oc];
+
+        output[output_idx] = scale * sum + bias;
+    }
 }
 
 __global__ void downsample_kernel(const float *input, const float *weight, const float *bn_weight, const float *bn_bias, const float *bn_mean, const float *bn_var, float *output, int in_ch, int out_ch, int H, int W, float epsilon)
@@ -67,7 +117,8 @@ __global__ void downsample_kernel(const float *input, const float *weight, const
     }
 
     float scale = bn_weight[oc] / sqrtf(bn_var[oc] + epsilon);
-    float normalized = scale * (sum - bn_mean[oc]) + bn_bias[oc];
+    float bias = bn_bias[oc] - scale * bn_mean[oc];
+    float normalized = scale * sum + bias;
 
     int output_idx = oc * outH * outW + out_h * outW + out_w;
     output[output_idx] = normalized;

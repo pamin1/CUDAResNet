@@ -6,7 +6,8 @@ import time
 from torchvision.datasets import CIFAR10
 import os
 
-sample_size = 1000
+sample_size = 50
+
 
 def loadCifar():
     dataset = CIFAR10(root="./assets", train=False, download=True)
@@ -93,6 +94,13 @@ def launchTorch(use_cuda):
         confidence = top_prob.item()
         duration_ms = (end - start) * 1000
         inference_times.append(duration_ms)
+        img = f"image_{i:04d}"
+
+        print(
+            f"{img:<12} Class: {predicted_class:<30} "
+            f"Confidence: {confidence:>8.4f}  "
+            f"Time: {duration_ms:>7.2f} ms"
+        )
 
     # Calculate and print summary statistics
     total_time = sum(inference_times)

@@ -1,11 +1,26 @@
+/**
+ * Author: Prachit Amin
+ * ECE 4122
+ * 12/1/2025
+ * Declares ImageParse class for preprocessing image.
+ */
+
 #include <iostream>
 #include <opencv2/opencv.hpp>
 
 class ImageParse
 {
   public:
-    explicit ImageParse(std::string path); // only allow constrcutor with
-                                           // image path (no default)
+    /**
+     * @brief Image parsing object that preprocesses and stores the input image
+     * @param path File path to the chosen input image
+     */
+    explicit ImageParse(std::string path);
+
+    /**
+     * @brief Getter for the input image float array
+     * @return Array of floats (224x224*3)
+     */
     float *getHostImage()
     {
         return host;

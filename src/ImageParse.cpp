@@ -1,10 +1,17 @@
+/**
+ * Author: Prachit Amin
+ * ECE 4122
+ * 12/1/2025
+ * Defines ImageProcess class for preprocessing image.
+ */
+
 #include "ImageParse.h"
 
 ImageParse::ImageParse(std::string path)
 {
     cv::Mat image = cv::imread(path, cv::IMREAD_COLOR);
 
-    // Check if the image was loaded successfully
+    // check if the image was loaded successfully
     if (image.empty())
     {
         std::cerr << "Error: Could not open or find the image." << std::endl;

@@ -1,3 +1,10 @@
+/**
+ * Author: Prachit Amin
+ * ECE 4122
+ * 12/1/2025
+ * Runs timing benchmarking for CIFAR-10 data set validation images.
+ */
+
 #include "ImageParse.h"
 #include "Kernel.cuh"
 #include "ModelImplementation.h"
@@ -5,7 +12,7 @@
 #include <chrono>
 #include <fmt/format.h>
 
-constexpr int sampleSize = 1000;
+constexpr int sampleSize = 50;
 constexpr int imgSize = 224 * 224 * 3;
 constexpr size_t byteSize = imgSize * sizeof(float);
 
@@ -76,7 +83,7 @@ int main()
 
         // uncomment for inference verification
         std::string img = fmt::format("image_{:04d}", i);
-        // std::cout << fmt::format("{:<12} Class: {:<30} Confidence: {:>8.4f}  Time: {:>7.2f} ms\n", img, map[predicted_class], max_score, duration.count());
+        std::cout << fmt::format("{:<12} Class: {:<30} Confidence: {:>8.4f}  Time: {:>7.2f} ms\n", img, map[predicted_class], max_score, duration.count());
     }
 
     // total timing metrics

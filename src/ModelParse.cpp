@@ -1,3 +1,10 @@
+/**
+ * Author: Prachit Amin
+ * ECE 4122
+ * 12/1/2025
+ * Parses the ResNet file to allocate and copy weights to GPU.
+ */
+
 #include "ModelParse.h"
 #include "util.h"
 

@@ -1,3 +1,10 @@
+/**
+ * Author: Prachit Amin
+ * ECE 4122
+ * 12/1/2025
+ * Declares ResNet model and sublayers/sections
+ */
+
 #ifndef RESNETDEV_H
 #define RESNETDEV_H
 
@@ -45,7 +52,7 @@ struct BasicBlock
 
 struct ResNet18
 {
-    // Initial layer
+    // initial layer
     ConvLayer conv1;
     BatchNorm bn1;
 
@@ -55,7 +62,7 @@ struct ResNet18
     BasicBlock layer3[2];
     BasicBlock layer4[2];
 
-    // Final classifier
+    // final classifier
     FullyConnected fc;
 };
 

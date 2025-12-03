@@ -1,6 +1,20 @@
+/**
+ * Author: Prachit Amin
+ * ECE 4122
+ * 12/1/2025
+ * Single function definition to launch the model.
+ */
+
 #include "Kernel.cuh"
 #include "ResNetDev.h"
+#include <iostream>
 
+/**
+ * @brief Function implementation of ResNet18 Model
+ * @param model Model architecture containing the required weights on device
+ * @param image Input image on Device
+ * @return Float array of confidence scores mapped to class via index
+ */
 float *launchModel(const ResNet18 &model, const float *image)
 {
     float *out;
@@ -17,7 +31,7 @@ float *launchModel(const ResNet18 &model, const float *image)
     launchReLUKernel(out, out, 64 * 112 * 112);
     cudaDeviceSynchronize();
 
-    // max pool: 112×112×64 to 56×56×64
+    // max pool: 112x112x64 to 56x56x64
     float *temp_pool;
     cudaMalloc(&temp_pool, 64 * 56 * 56 * sizeof(float));
     launchMaxPoolKernel(out, temp_pool, 112, 112, 64, 3, 2, 1);
@@ -124,4 +138,4 @@ float *launchModel(const ResNet18 &model, const float *image)
     cudaFree(final_out);
     cudaFree(out);
     return h_results;
-}
+};

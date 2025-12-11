@@ -27,14 +27,17 @@ Run:
 ### Accuracy
 Using the same weights across all test groups so the inferences are deterministic, thus accuracy testing will be redundant.
 
-### v1.0.0: Naive (1000 samples)
-| Implementation | Latency (ms/img) | Throughput (Hz) | Speedup vs Custom |
-| :------------- | :--------------: | :-------------: | :---------------: |
-| PyTorch CUDA   |      4.281       |     233.58      |       9.16x       |
-| PyTorch CPU    |      18.550      |      53.92      |       2.11x       |
-| Custom CUDA    |      39.208      |      25.51      |       1.00x       |
+| Implementation                    | Latency (ms/img) | Throughput (img/s) | vs PyTorch CUDA |
+| :-------------------------------- | :--------------: | :----------------: | :-------------: |
+| **Baseline: PyTorch CUDA**        |      4.281       |       233.58       |    Baseline     |
+| **Baseline: PyTorch CPU**         |      18.550      |       53.92        |  4.33x slower   |
+| Custom CUDA - Shared Memory Image |      34.744      |       28.78        |  8.11x slower   |
+| Custom CUDA - Naive               |      39.208      |       25.51        |  9.16x slower   |
 
-Naive implementation consistently ~9x slower than CUDA accelerated PyTorch, only 2x slower than PyTorch CPU. Removed variable sample size; implemented warmup of 50 inferences before beginning timing and commited to 1000 samples for testing.
+**v1.1**: Shared Memory Image stores only the image in shared memory. There is mild reuse of the image data so it makes sense there is not as extreme of a speed up. The real speed likely remains to be seen through storing the kernel weights.
+Better optimizations will be seen by improving the data reuse pattern.
+
+**v1.0**: Naive implementation consistently ~9x slower than CUDA accelerated PyTorch, only 2x slower than PyTorch CPU. Removed variable sample size; implemented warmup of 50 inferences before beginning timing and commited to 1000 samples for testing.
 ## Why ResNet?
 ### Vanishing Gradient Problem
 As the number of layers in a model increase, the performance of the models decreases:

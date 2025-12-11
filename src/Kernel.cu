@@ -9,87 +9,99 @@
 
 __global__ void conv2d_kernel(const float *input, const float *weight, const float *bnWeight, const float *bnBias, const float *bnMean, const float *bnVar, float *output, int in_channels, int out_channels, int H, int W, int outH, int outW, int kernel_size, int stride, int padding)
 {
-    // shared memory - initialize the weights by channel
-    // tile each channel
     extern __shared__ float smem[];
 
-    int hOutStart = blockIdx.y * blockDim.y;
-    int wOutStart = blockIdx.x * blockDim.x;
-
-    int hInStart = hOutStart * stride - padding;
-    int wInStart = wOutStart * stride - padding;
-
-    int hTile = blockDim.y * stride + (kernel_size - 1);
-    int wTile = blockDim.x * stride + (kernel_size - 1);
-
     int tid = threadIdx.y * blockDim.x + threadIdx.x;
-    int total_threads = blockDim.x * blockDim.y;
-    int total_elements = TILE_CHANNELS * hTile * wTile;
-
     int oc = blockIdx.z;
-    int out_h = blockIdx.y * blockDim.y + threadIdx.y;
-    int out_w = blockIdx.x * blockDim.x + threadIdx.x;
+
+    // Calculate shared memory dimensions
+    // Each output pixel at stride S needs a kernel_size neighborhood in input
+    // Block produces blockDim outputs, spanning blockDim*stride in input space
+    // Plus kernel_size-1 for the halo
+    int smem_width = blockDim.x * stride + kernel_size - 1;
+    int smem_height = blockDim.y * stride + kernel_size - 1;
+    int totalElem = smem_width * smem_height;
+    int blockStride = blockDim.x * blockDim.y;
+
+    // Block's starting position in OUTPUT space
+    int block_out_x = blockIdx.x * blockDim.x;
+    int block_out_y = blockIdx.y * blockDim.y;
+
+    // Thread's position in OUTPUT space
+    int out_x = block_out_x + threadIdx.x;
+    int out_y = block_out_y + threadIdx.y;
+
+    // Block's starting position in INPUT space (top-left of the tile we need to load)
+    // This is where output (block_out_x, block_out_y) maps to in input, minus padding
+    int block_input_start_x = block_out_x * stride - padding;
+    int block_input_start_y = block_out_y * stride - padding;
 
     float sum = 0.0f;
-    for (int ic = 0; ic < in_channels; ic += TILE_CHANNELS)
+
+    // Loop over input channels
+    for (int ic = 0; ic < in_channels; ic++)
     {
-        for (int i = tid; i < total_elements; i += total_threads)
+        // Cooperatively load tile into shared memory
+        for (int i = tid; i < totalElem; i += blockStride)
         {
-            int c = i / (hTile * wTile);
-            int h = (i / wTile) % hTile;
-            int w = i % wTile;
+            int smem_x = i % smem_width;
+            int smem_y = i / smem_width;
 
-            int cGlobal = ic + c;
-            int hGlobal = hInStart + h;
-            int wGlobal = wInStart + w;
+            // Map to global input position
+            int in_x = block_input_start_x + smem_x;
+            int in_y = block_input_start_y + smem_y;
 
-            if ((hGlobal >= 0 && hGlobal < H) && (wGlobal >= 0 && wGlobal < W) && (cGlobal >= 0 && cGlobal < in_channels))
+            if (in_x >= 0 && in_x < W && in_y >= 0 && in_y < H)
             {
-                int globalIdx = cGlobal * H * W + hGlobal * W + wGlobal;
-                smem[i] = input[globalIdx];
+                int input_idx = ic * (H * W) + in_y * W + in_x;
+                smem[i] = input[input_idx];
             }
             else
             {
-                smem[i] = 0.0f;
+                smem[i] = 0.0f; // Zero padding
             }
         }
         __syncthreads();
 
-        if (out_h < outH && out_w < outW)
+        // Compute convolution if this thread produces a valid output
+        if (out_x < outW && out_y < outH)
         {
+            // This thread's output position in input space
+            int thread_input_start_x = out_x * stride - padding;
+            int thread_input_start_y = out_y * stride - padding;
 
-            for (int c = 0; c < TILE_CHANNELS && (ic + c) < in_channels; c++)
+            // Offset from block's input start to this thread's input start
+            int smem_base_x = thread_input_start_x - block_input_start_x;
+            int smem_base_y = thread_input_start_y - block_input_start_y;
+
+            // Convolve
+            for (int kh = 0; kh < kernel_size; kh++)
             {
-                for (int kh = 0; kh < kernel_size; kh++)
+                for (int kw = 0; kw < kernel_size; kw++)
                 {
-                    for (int kw = 0; kw < kernel_size; kw++)
-                    {
-                        int hLocal = threadIdx.y * stride + kh;
-                        int wLocal = threadIdx.x * stride + kw;
+                    int smem_x = smem_base_x + kw;
+                    int smem_y = smem_base_y + kh;
+                    int smem_idx = smem_y * smem_width + smem_x;
 
-                        int smem_idx = c * hTile * wTile + hLocal * wTile + wLocal;
-                        int weight_idx = oc * in_channels * kernel_size * kernel_size + (ic + c) * kernel_size * kernel_size + kh * kernel_size + kw;
-
-                        if (smem_idx < total_elements)
-                        {
-                            sum += smem[smem_idx] * weight[weight_idx];
-                        }
-                    }
+                    int weight_idx = ((oc * in_channels + ic) * kernel_size + kh) * kernel_size + kw;
+                    sum += smem[smem_idx] * weight[weight_idx];
                 }
             }
         }
-        __syncthreads();
+        __syncthreads(); // Wait before loading next channel
     }
 
-    if (out_h < outH && out_w < outW)
+    // Apply BatchNorm and write output
+    if (out_x < outW && out_y < outH)
     {
-        int output_idx = oc * outH * outW + out_h * outW + out_w;
-
-        // Correct BatchNorm fusion formula
         float scale = bnWeight[oc] / sqrtf(bnVar[oc] + EPSILON);
-        float bias = bnBias[oc] - scale * bnMean[oc];
+        float bn_output = scale * (sum - bnMean[oc]) + bnBias[oc];
 
-        output[output_idx] = scale * sum + bias;
+        // Apply ReLU
+        // bn_output = fmaxf(0.0f, bn_output);
+
+        int output_idx = oc * (outH * outW) + out_y * outW + out_x;
+        output[output_idx] = bn_output;
     }
 }
 
@@ -226,10 +238,14 @@ void launchConvKernel(float *image, float *output, const ConvLayer &conv, const 
     int outputH = computeDim(inputDim, stride, pad, conv.kernelSize);
     int outputW = computeDim(inputDim, stride, pad, conv.kernelSize);
 
-    dim3 block(16, 16, 1);
+    dim3 block(8, 8, 1);
     dim3 grid((outputW + block.x - 1) / block.x, (outputH + block.y - 1) / block.y, conv.outputSize);
 
-    conv2d_kernel<<<grid, block>>>(image, conv.d_weight, bn.d_weight, bn.d_bias, bn.d_runningMean, bn.d_runningVar, output, conv.inputSize, conv.outputSize, inputDim, inputDim, outputH, outputW, conv.kernelSize, stride, pad);
+    // smem sizing
+    int radius = conv.kernelSize / 2;
+    int smemSize = (block.x * stride + conv.kernelSize - 1) * (block.y * stride + conv.kernelSize - 1) * sizeof(float);
+
+    conv2d_kernel<<<grid, block, smemSize>>>(image, conv.d_weight, bn.d_weight, bn.d_bias, bn.d_runningMean, bn.d_runningVar, output, conv.inputSize, conv.outputSize, inputDim, inputDim, outputH, outputW, conv.kernelSize, stride, pad);
 }
 
 void launchDownsampleKernel(float *input, float *output, const Downsample &ds, int H, int W)

@@ -25,3 +25,5 @@ The most obvious optimization is to use shared memory for the convolution kernel
 Loading all channels into shared memory at once would be too large. Tiling the channels themselves would make the most sense. So I would need the GPU to do a chunk of each channel. The channels are contiguous in memory so I would need to account for that as well.
 So each feature map will be H x W, each thread block will provide tile_h x tile_w outputs.
 tile dims are determined with consideration for padding.
+
+Each block will perform one tile of the convolution. Further, threadIdx.x and threadIdx.y create thread cooperation within the thread. Global position tells where in the image we are. 

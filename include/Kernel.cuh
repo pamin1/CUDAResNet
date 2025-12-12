@@ -38,7 +38,7 @@
 __global__ void conv2d_kernel(const float *input, const float *weight, const float *bnWeight,
                               const float *bnBias, const float *bnMean, const float *bnVar,
                               float *output, int in_channels, int out_channels, int H, int W,
-                              int outH, int outW, int kernel_size, int stride, int padding);
+                              int outH, int outW, int kernel_size, int stride, int padding, bool ReLU);
 
 /**
  * @brief CUDA Downsample kernel for reducing spatial dimensions
@@ -61,21 +61,13 @@ __global__ void downsample_kernel(const float *input, const float *weight, const
                                   float epsilon);
 
 /**
- * @brief CUDA ReLU activation kernel
- * @param input Input tensor
- * @param output Output tensor
- * @param size Size of the tensor
- */
-__global__ void relu_kernel(const float *input, float *output, int size);
-
-/**
  * @brief CUDA element wise addition kernel
  * @param a First input tensor
  * @param b Second input tensor
  * @param output Output tensor
  * @param size Size of the tensors
  */
-__global__ void add_kernel(const float *a, const float *b, float *output, int size);
+__global__ void add_kernel(const float *a, const float *b, float *output, int size, bool ReLU);
 
 /**
  * @brief CUDA Max Pooling kernel
@@ -124,7 +116,7 @@ __global__ void fc_kernel(const float *input, const float *weight, const float *
  * @param pad Convolution padding
  */
 void launchConvKernel(float *image, float *output, const ConvLayer &conv, const BatchNorm &bn,
-                      int inputDim, int stride, int pad);
+                      int inputDim, int stride, int pad, bool ReLU);
 
 /**
  * @brief Launch downsample kernel
@@ -191,14 +183,5 @@ void launchFCKernel(float *input, float *output, const FullyConnected &fc, int i
  * @param output Output data
  * @param size Size of the data arrays
  */
-void launchAddKernel(float *a, float *b, float *output, int size);
-
-/**
- * @brief Launch ReLU activation kernel
- * @param input Input data
- * @param output Output data
- * @param size Size of the data array
- */
-void launchReLUKernel(float *input, float *output, int size);
-
+void launchAddKernel(float *a, float *b, float *output, int size, bool ReLU);
 #endif

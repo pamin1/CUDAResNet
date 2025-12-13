@@ -27,12 +27,15 @@ Run:
 ### Accuracy
 Using the same weights across all test groups so the inferences are deterministic, thus accuracy testing will be redundant.
 
-| Implementation                    | Latency (ms/img) | Throughput (img/s) | vs PyTorch CUDA |
-| :-------------------------------- | :--------------: | :----------------: | :-------------: |
-| **Baseline: PyTorch CUDA**        |      4.281       |       233.58       |    Baseline     |
-| **Baseline: PyTorch CPU**         |      18.550      |       53.92        |  4.33x slower   |
-| Custom CUDA - Shared Memory Image |      34.744      |       28.78        |  8.11x slower   |
-| Custom CUDA - Naive               |      39.208      |       25.51        |  9.16x slower   |
+| Implementation                                | Latency (ms/img) | Throughput (img/s) | vs PyTorch CUDA |
+| :-------------------------------------------- | :--------------: | :----------------: | :-------------: |
+| **Baseline: PyTorch CUDA**                    |      4.281       |       233.58       |    Baseline     |
+| **Baseline: PyTorch CPU**                     |      18.550      |       53.92        |  4.33x slower   |
+| Custom CUDA - Shared Memory Image             |      34.744      |       28.78        |  8.11x slower   |
+| Custom CUDA - Shared Memory Image and Weights |      37.628      |       26.56        |  8.79x slower   |
+| Custom CUDA - Naive                           |      39.208      |       25.51        |  9.16x slower   |
+
+**v1.2**: Shared Memory Image and Weights is actually slower, so my hypothesis from v1.1 was wrong. I used Nsight Compute (ncu) to try and debug this further because the memory bandwidth speed up should have easily given more than a 5ms speed up. It turns out that its still memory bound but a different kind now... I learned there is such a thing as latency bound!
 
 **v1.1**: Shared Memory Image stores only the image in shared memory. There is mild reuse of the image data so it makes sense there is not as extreme of a speed up. The real speed likely remains to be seen through storing the kernel weights.
 Better optimizations will be seen by improving the data reuse pattern.

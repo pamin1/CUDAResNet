@@ -14,7 +14,7 @@ __global__ void conv2d_kernel(const float *input, const float *weight, const flo
     int tid = threadIdx.y * blockDim.x + threadIdx.x;
     int oc = blockIdx.z;
 
-    // smem dimensions - FIXED: should be kernel_size - 1, not kernel_size
+    // smem dimensions
     int smem_width = blockDim.x * stride + kernel_size - 1;
     int smem_height = blockDim.y * stride + kernel_size - 1;
 
@@ -65,7 +65,6 @@ __global__ void conv2d_kernel(const float *input, const float *weight, const flo
         // compute convolution if this thread produces a valid output
         if (out_x < outW && out_y < outH)
         {
-            // FIXED: Simplified calculation
             int smem_base_x = threadIdx.x * stride;
             int smem_base_y = threadIdx.y * stride;
 
@@ -220,7 +219,7 @@ void launchMaxPoolKernel(float *input, float *output, int H, int W, int C, int k
     int outH = (H + 2 * padding - kernel_size) / stride + 1;
     int outW = (W + 2 * padding - kernel_size) / stride + 1;
 
-    dim3 block(16, 16, 1);
+    dim3 block(32, 32, 1);
     dim3 grid((outW + 15) / 16, (outH + 15) / 16, C);
 
     maxpool_kernel<<<grid, block>>>(input, output, C, H, W, kernel_size, stride, padding);
@@ -234,7 +233,6 @@ void launchConvKernel(float *image, float *output, const ConvLayer &conv, const 
     dim3 block(8, 8);
     dim3 grid((outputW + block.x - 1) / block.x, (outputH + block.y - 1) / block.y, conv.outputSize);
 
-    // FIXED: Corrected shared memory calculation
     int smem_width = block.x * stride + conv.kernelSize - 1;
     int smem_height = block.y * stride + conv.kernelSize - 1;
     int smemImageSize = smem_width * smem_height;
@@ -250,7 +248,7 @@ void launchDownsampleKernel(float *input, float *output, const Downsample &ds, i
     int outH = (H + 1) / 2;
     int outW = (W + 1) / 2;
 
-    dim3 block(16, 16, 1);
+    dim3 block(32, 32, 1);
     dim3 grid((outW + 15) / 16, (outH + 15) / 16, ds.weight.outputSize);
 
     downsample_kernel<<<grid, block>>>(input, ds.weight.d_weight, ds.bn.d_weight, ds.bn.d_bias, ds.bn.d_runningMean, ds.bn.d_runningVar, output, ds.weight.inputSize, ds.weight.outputSize, H, W, 1e-5f);
@@ -259,7 +257,7 @@ void launchDownsampleKernel(float *input, float *output, const Downsample &ds, i
 
 void launchAddKernel(float *a, float *b, float *output, int size, bool ReLU)
 {
-    int blockSize = 256;
+    int blockSize = 1024;
     int gridSize = (size + blockSize - 1) / blockSize;
     add_kernel<<<gridSize, blockSize>>>(a, b, output, size, ReLU);
     CHECK_ERROR(cudaGetLastError());

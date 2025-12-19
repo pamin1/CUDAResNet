@@ -14,7 +14,7 @@ const int TILE_M = 32; // output spatial dimension tile
 const int TILE_N = 32; // output channel tile
 const int TILE_K = 16; // input channel * kernel_size^2 tile
 
-__global__ void conv2d_kernel(const float *input, const float *weight, const float *bnWeight, const float *bnBias, const float *bnMean, const float *bnVar, float *output, int in_channels, int out_channels, int H, int W, int outH, int outW, int kernel_size, int stride, int padding, bool ReLU)
+__global__ void conv2d_kernel(const float *input, const float *weight, const float *bnWeight, const float *bnBias, const float *bnMean, const float *bnVar, float *output, int in_channels, int out_channels, int H, int W, int outH, int outW, int kernel_size, int stride, int padding, bool ReLU, const float *residual)
 {
     __shared__ half smem_input[TILE_M * TILE_K];
     __shared__ half smem_weight[TILE_N * TILE_K];
@@ -154,7 +154,7 @@ __global__ void conv2d_kernel(const float *input, const float *weight, const flo
     int num_output_elements = TILE_M * TILE_N;
     elements_per_thread = (num_output_elements + blockDim.x - 1) / blockDim.x;
 
-    // fused bn + relu
+    // fused bn + add + relu
     for (int i = 0; i < elements_per_thread; i++)
     {
         int idx = threadIdx.x * elements_per_thread + i;
@@ -176,6 +176,13 @@ __global__ void conv2d_kernel(const float *input, const float *weight, const flo
                 float std = sqrtf(bnVar[oc] + eps);
                 val = (val - bnMean[oc]) / std;
                 val = val * bnWeight[oc] + bnBias[oc];
+
+                // Add residual (if provided)
+                if (residual != nullptr)
+                {
+                    int out_idx = oc * outH * outW + out_y * outW + out_x;
+                    val += residual[out_idx];
+                }
 
                 // relu
                 if (ReLU && val < 0.0f)
@@ -314,7 +321,7 @@ void launchMaxPoolKernel(float *input, float *output, int H, int W, int C, int k
     maxpool_kernel<<<grid, block>>>(input, output, C, H, W, kernel_size, stride, padding);
 }
 
-void launchConvKernel(float *image, float *output, const ConvLayer &conv, const BatchNorm &bn, int inputDim, int stride, int pad, bool ReLU)
+void launchConvKernel(float *image, float *output, const ConvLayer &conv, const BatchNorm &bn, int inputDim, int stride, int pad, bool ReLU, const float *residual)
 {
     int outputH = computeDim(inputDim, stride, pad, conv.kernelSize);
     int outputW = computeDim(inputDim, stride, pad, conv.kernelSize);
@@ -339,7 +346,7 @@ void launchConvKernel(float *image, float *output, const ConvLayer &conv, const 
         bn.d_runningMean, bn.d_runningVar, output,
         conv.inputSize, conv.outputSize,
         inputDim, inputDim, outputH, outputW,
-        conv.kernelSize, stride, pad, ReLU);
+        conv.kernelSize, stride, pad, ReLU, residual);
 
     CHECK_ERROR(cudaGetLastError());
 }
@@ -371,18 +378,17 @@ void runBasicBlock(const BasicBlock &bb, float *input, float *output, int inputC
     int outH = midH;
     int outW = midW;
 
-    float *temp1, *temp2, *identity;
+    float *temp1, *identity;
     size_t temp1_size = bb.conv1.outputSize * midH * midW * sizeof(float);
-    size_t temp2_size = bb.conv2.outputSize * outH * outW * sizeof(float);
+    size_t identity_size = bb.conv2.outputSize * outH * outW * sizeof(float);
 
     CHECK_ERROR(cudaMalloc(&temp1, temp1_size));
-    CHECK_ERROR(cudaMalloc(&temp2, temp2_size));
-    CHECK_ERROR(cudaMalloc(&identity, temp2_size));
+    CHECK_ERROR(cudaMalloc(&identity, identity_size));
 
-    // fused relu
-    launchConvKernel(input, temp1, bb.conv1, bb.bn1, inputH, stride1, 1, true);
-    launchConvKernel(temp1, temp2, bb.conv2, bb.bn2, midH, 1, 1, false);
+    // Conv1 + BN1 + ReLU (no residual)
+    launchConvKernel(input, temp1, bb.conv1, bb.bn1, inputH, stride1, 1, true, nullptr);
 
+    // Prepare residual
     if (bb.hasDownsample)
     {
         launchDownsampleKernel(input, identity, bb.ds, inputH, inputW);
@@ -393,10 +399,10 @@ void runBasicBlock(const BasicBlock &bb, float *input, float *output, int inputC
         CHECK_ERROR(cudaMemcpy(identity, input, copy_size, cudaMemcpyDeviceToDevice));
     }
 
-    launchAddKernel(temp2, identity, output, bb.conv2.outputSize * outH * outW, true);
+    // Conv2 + BN2 + Add + ReLU (all fused!)
+    launchConvKernel(temp1, output, bb.conv2, bb.bn2, midH, 1, 1, true, identity);
 
     cudaFree(temp1);
-    cudaFree(temp2);
     cudaFree(identity);
 }
 

@@ -24,7 +24,7 @@ float *launchModel(const ResNet18 &model, const float *image)
     CHECK_ERROR(cudaMalloc((void **)&out, outSize * sizeof(float)));
     CHECK_ERROR(cudaMemset(out, 0, outSize * sizeof(float)));
 
-    launchConvKernel((float *)image, out, model.conv1, model.bn1, IMAGE_DIM, 2, 3, true);
+    launchConvKernel((float *)image, out, model.conv1, model.bn1, IMAGE_DIM, 2, 3, true, nullptr);
     cudaDeviceSynchronize();
 
     // ReLU

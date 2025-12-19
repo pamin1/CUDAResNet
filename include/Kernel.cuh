@@ -35,11 +35,13 @@
  * @param stride Convolution stride
  * @param padding Convolution padding
  * @param ReLU Convolution has following ReLU
+ * @param residual Optional residual connection to add (for ResNet blocks)
  */
 __global__ void conv2d_kernel(const float *input, const float *weight, const float *bnWeight,
                               const float *bnBias, const float *bnMean, const float *bnVar,
                               float *output, int in_channels, int out_channels, int H, int W,
-                              int outH, int outW, int kernel_size, int stride, int padding, bool ReLU);
+                              int outH, int outW, int kernel_size, int stride, int padding, bool ReLU,
+                              const float *residual = nullptr);
 
 /**
  * @brief CUDA Downsample kernel for reducing spatial dimensions
@@ -115,9 +117,11 @@ __global__ void fc_kernel(const float *input, const float *weight, const float *
  * @param inputDim Input dimension
  * @param stride Convolution stride
  * @param pad Convolution padding
+ * @param ReLU Apply ReLU activation
+ * @param residual Optional residual connection to add (for ResNet blocks)
  */
 void launchConvKernel(float *image, float *output, const ConvLayer &conv, const BatchNorm &bn,
-                      int inputDim, int stride, int pad, bool ReLU);
+                      int inputDim, int stride, int pad, bool ReLU, const float *residual = nullptr);
 
 /**
  * @brief Launch downsample kernel

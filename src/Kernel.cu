@@ -6,98 +6,187 @@
  */
 
 #include "Kernel.cuh"
+#include <mma.h>
+using namespace nvcuda;
+
+// tile dimensions
+const int TILE_M = 32; // output spatial dimension tile
+const int TILE_N = 32; // output channel tile
+const int TILE_K = 16; // input channel * kernel_size^2 tile
 
 __global__ void conv2d_kernel(const float *input, const float *weight, const float *bnWeight, const float *bnBias, const float *bnMean, const float *bnVar, float *output, int in_channels, int out_channels, int H, int W, int outH, int outW, int kernel_size, int stride, int padding, bool ReLU)
 {
-    extern __shared__ float smem[];
+    __shared__ half smem_input[TILE_M * TILE_K];
+    __shared__ half smem_weight[TILE_N * TILE_K];
 
-    int tid = threadIdx.y * blockDim.x + threadIdx.x;
-    int oc = blockIdx.z;
+    // WMMA tile matrices
+    wmma::fragment<wmma::matrix_a, 16, 16, 16, half, wmma::row_major> a_frag;
+    wmma::fragment<wmma::matrix_b, 16, 16, 16, half, wmma::col_major> b_frag;
+    wmma::fragment<wmma::accumulator, 16, 16, 16, float> acc_frag;
 
-    // smem dimensions
-    int smem_width = blockDim.x * stride + kernel_size - 1;
-    int smem_height = blockDim.y * stride + kernel_size - 1;
+    int block_row = blockIdx.y; // output spatial tile
+    int block_col = blockIdx.z; // output channel tile
 
-    // partition shared memory
-    float *smem_img = smem;
-    float *smem_weight = smem + smem_width * smem_height;
+    // warp and lane indices
+    int warpM = (threadIdx.x / 32) / (TILE_N / 16); // warp row in block
+    int warpN = (threadIdx.x / 32) % (TILE_N / 16); // warp col in block
+    int laneId = threadIdx.x % 32;
 
-    // thread position in output
-    int out_x = blockIdx.x * blockDim.x + threadIdx.x;
-    int out_y = blockIdx.y * blockDim.y + threadIdx.y;
+    // ouput position
+    int out_row_base = block_row * TILE_M + warpM * 16;
+    int out_col_base = block_col * TILE_N + warpN * 16;
 
-    float sum = 0.0f;
+    // convert linear output position to (out_y, out_x, out_c)
+    int spatial_base = block_row * TILE_M;
+    int oc_base = block_col * TILE_N;
 
-    // loop over input channels
-    for (int ic = 0; ic < in_channels; ic++)
+    wmma::fill_fragment(acc_frag, 0.0f);
+
+    int K2 = kernel_size * kernel_size;
+    int total_K = in_channels * K2;
+    int num_k_tiles = (total_K + TILE_K - 1) / TILE_K;
+
+    // each thread loads multiple elements
+    int num_input_elements = TILE_M * TILE_K;
+    int elements_per_thread = (num_input_elements + blockDim.x - 1) / blockDim.x;
+
+    // tile over K dimension
+    for (int k_tile = 0; k_tile < num_k_tiles; k_tile++)
     {
-        // cooperative tiling
-        for (int i = tid; i < smem_width * smem_height; i += blockDim.x * blockDim.y)
+        int k_base = k_tile * TILE_K;
+
+        // input
+        for (int i = 0; i < elements_per_thread; i++)
         {
-            int smem_x = i % smem_width;
-            int smem_y = i / smem_width;
-
-            // map to global input position
-            int in_x = blockIdx.x * blockDim.x * stride - padding + smem_x;
-            int in_y = blockIdx.y * blockDim.y * stride - padding + smem_y;
-
-            if (in_x >= 0 && in_x < W && in_y >= 0 && in_y < H)
+            int idx = threadIdx.x * elements_per_thread + i;
+            if (idx < num_input_elements)
             {
-                int input_idx = ic * (H * W) + in_y * W + in_x;
-                smem_img[i] = input[input_idx];
-            }
-            else
-            {
-                smem_img[i] = 0.0f;
-            }
-        }
+                int spatial_idx = idx / TILE_K;
+                int k_idx = k_base + (idx % TILE_K);
 
-        int weightsPerChannel = kernel_size * kernel_size;
-        for (int i = tid; i < weightsPerChannel; i += blockDim.x * blockDim.y)
-        {
-            int kh = i / kernel_size;
-            int kw = i % kernel_size;
-            int weight_idx = ((oc * in_channels + ic) * kernel_size + kh) * kernel_size + kw;
-            smem_weight[i] = weight[weight_idx];
-        }
-        __syncthreads();
+                // convert spatial_idx to (out_y, out_x)
+                int linear_pos = spatial_base + spatial_idx;
+                int out_y = linear_pos / outW;
+                int out_x = linear_pos % outW;
 
-        // compute convolution if this thread produces a valid output
-        if (out_x < outW && out_y < outH)
-        {
-            int smem_base_x = threadIdx.x * stride;
-            int smem_base_y = threadIdx.y * stride;
-
-            // convolve
-            for (int kh = 0; kh < kernel_size; kh++)
-            {
-                for (int kw = 0; kw < kernel_size; kw++)
+                if (out_y < outH && out_x < outW && k_idx < total_K)
                 {
-                    int smem_x = smem_base_x + kw;
-                    int smem_y = smem_base_y + kh;
-                    int smem_idx = smem_y * smem_width + smem_x;
+                    int ic = k_idx / K2;
+                    int k_offset = k_idx % K2;
+                    int ky = k_offset / kernel_size;
+                    int kx = k_offset % kernel_size;
 
-                    int smem_w_idx = kh * kernel_size + kw;
-                    sum += smem_img[smem_idx] * smem_weight[smem_w_idx];
+                    // compute input position
+                    int in_y = out_y * stride - padding + ky;
+                    int in_x = out_x * stride - padding + kx;
+
+                    if (in_y >= 0 && in_y < H && in_x >= 0 && in_x < W)
+                    {
+                        int in_idx = ic * H * W + in_y * W + in_x;
+                        smem_input[idx] = __float2half(input[in_idx]);
+                    }
+                    else
+                    {
+                        smem_input[idx] = __float2half(0.0f);
+                    }
+                }
+                else
+                {
+                    smem_input[idx] = __float2half(0.0f);
                 }
             }
         }
+
+        // weight
+        int num_weight_elements = TILE_N * TILE_K;
+        elements_per_thread = (num_weight_elements + blockDim.x - 1) / blockDim.x;
+
+        for (int i = 0; i < elements_per_thread; i++)
+        {
+            int idx = threadIdx.x * elements_per_thread + i;
+            if (idx < num_weight_elements)
+            {
+                int oc = oc_base + (idx / TILE_K);
+                int k_idx = k_base + (idx % TILE_K);
+
+                if (oc < out_channels && k_idx < total_K)
+                {
+                    int ic = k_idx / K2;
+                    int k_offset = k_idx % K2;
+                    int ky = k_offset / kernel_size;
+                    int kx = k_offset % kernel_size;
+
+                    int w_idx = oc * in_channels * K2 + ic * K2 + ky * kernel_size + kx;
+                    smem_weight[idx] = __float2half(weight[w_idx]);
+                }
+                else
+                {
+                    smem_weight[idx] = __float2half(0.0f);
+                }
+            }
+        }
+
+        __syncthreads();
+
+        // Accumulate across TILE_K
+        for (int k = 0; k < TILE_K; k += 16)
+        {
+            // load from shared memory into fragments
+            int a_offset = warpM * 16 * TILE_K + k;
+            int b_offset = warpN * 16 * TILE_K + k;
+
+            wmma::load_matrix_sync(a_frag, &smem_input[a_offset], TILE_K);
+            wmma::load_matrix_sync(b_frag, &smem_weight[b_offset], TILE_K);
+
+            wmma::mma_sync(acc_frag, a_frag, b_frag, acc_frag);
+        }
+
         __syncthreads();
     }
 
-    // apply batch norm and write output
-    if (out_x < outW && out_y < outH)
+    __shared__ float smem_output[TILE_M * TILE_N];
+
+    int output_offset = warpM * 16 * TILE_N + warpN * 16;
+    wmma::store_matrix_sync(&smem_output[output_offset], acc_frag, TILE_N, wmma::mem_row_major);
+
+    __syncthreads();
+
+    int num_output_elements = TILE_M * TILE_N;
+    elements_per_thread = (num_output_elements + blockDim.x - 1) / blockDim.x;
+
+    // fused bn + relu
+    for (int i = 0; i < elements_per_thread; i++)
     {
-        float scale = bnWeight[oc] / sqrtf(bnVar[oc] + EPSILON);
-        float bn_output = scale * (sum - bnMean[oc]) + bnBias[oc];
-
-        if (ReLU)
+        int idx = threadIdx.x * elements_per_thread + i;
+        if (idx < num_output_elements)
         {
-            bn_output = fmaxf(0.0f, bn_output);
-        }
+            int spatial_idx = idx / TILE_N;
+            int oc = oc_base + (idx % TILE_N);
 
-        int output_idx = oc * (outH * outW) + out_y * outW + out_x;
-        output[output_idx] = bn_output;
+            int linear_pos = spatial_base + spatial_idx;
+            int out_y = linear_pos / outW;
+            int out_x = linear_pos % outW;
+
+            if (out_y < outH && out_x < outW && oc < out_channels)
+            {
+                float val = smem_output[idx];
+
+                // BN
+                float eps = 1e-5f;
+                float std = sqrtf(bnVar[oc] + eps);
+                val = (val - bnMean[oc]) / std;
+                val = val * bnWeight[oc] + bnBias[oc];
+
+                // relu
+                if (ReLU && val < 0.0f)
+                {
+                    val = 0.0f;
+                }
+
+                int out_idx = oc * outH * outW + out_y * outW + out_x;
+                output[out_idx] = val;
+            }
+        }
     }
 }
 
@@ -230,16 +319,28 @@ void launchConvKernel(float *image, float *output, const ConvLayer &conv, const 
     int outputH = computeDim(inputDim, stride, pad, conv.kernelSize);
     int outputW = computeDim(inputDim, stride, pad, conv.kernelSize);
 
-    dim3 block(8, 8);
-    dim3 grid((outputW + block.x - 1) / block.x, (outputH + block.y - 1) / block.y, conv.outputSize);
+    // num warps per dimension
+    int warps_per_M = TILE_M / 16;
+    int warps_per_N = TILE_N / 16;
+    int warps_per_block = warps_per_M * warps_per_N;
 
-    int smem_width = block.x * stride + conv.kernelSize - 1;
-    int smem_height = block.y * stride + conv.kernelSize - 1;
-    int smemImageSize = smem_width * smem_height;
-    int smemWeightSize = conv.kernelSize * conv.kernelSize;
-    int totalSmem = (smemImageSize + smemWeightSize) * sizeof(float);
+    // 32 threads per warp * number of warps
+    dim3 block(warps_per_block * 32);
 
-    conv2d_kernel<<<grid, block, totalSmem>>>(image, conv.d_weight, bn.d_weight, bn.d_bias, bn.d_runningMean, bn.d_runningVar, output, conv.inputSize, conv.outputSize, inputDim, inputDim, outputH, outputW, conv.kernelSize, stride, pad, ReLU);
+    // grid dims
+    int total_spatial = outputH * outputW;
+    int num_spatial_tiles = (total_spatial + TILE_M - 1) / TILE_M;
+    int num_channel_tiles = (conv.outputSize + TILE_N - 1) / TILE_N;
+
+    dim3 grid(1, num_spatial_tiles, num_channel_tiles);
+
+    conv2d_kernel<<<grid, block>>>(
+        image, conv.d_weight, bn.d_weight, bn.d_bias,
+        bn.d_runningMean, bn.d_runningVar, output,
+        conv.inputSize, conv.outputSize,
+        inputDim, inputDim, outputH, outputW,
+        conv.kernelSize, stride, pad, ReLU);
+
     CHECK_ERROR(cudaGetLastError());
 }
 

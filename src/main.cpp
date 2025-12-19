@@ -12,7 +12,7 @@
 #include <chrono>
 #include <fmt/format.h>
 
-constexpr int sampleSize = 500;
+constexpr int sampleSize = 1000;
 constexpr int imgSize = 224 * 224 * 3;
 constexpr size_t byteSize = imgSize * sizeof(float);
 
@@ -21,7 +21,7 @@ int main()
     // parse model
     ModelParse mp("assets/resnet18_manifest.json", "assets/resnet18_fp32.npz");
     ResNet18 model = mp.generateModel();
-    mp.printResNet18(model);
+    // mp.printResNet18(model);
 
     // load images onto cpu
     std::vector<float> h_images(imgSize * sampleSize);

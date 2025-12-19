@@ -34,6 +34,7 @@
  * @param kernel_size Convolution kernel size
  * @param stride Convolution stride
  * @param padding Convolution padding
+ * @param ReLU Convolution has following ReLU
  */
 __global__ void conv2d_kernel(const float *input, const float *weight, const float *bnWeight,
                               const float *bnBias, const float *bnMean, const float *bnVar,

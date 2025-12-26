@@ -53,13 +53,7 @@ Using the same weights across all test groups so the inferences are deterministi
 Detailed documentation is available in the docs and also Medium articles:
 
 - **[Implementation Details](docs/implementation-details.md) ([Medium Post](https://medium.com/@prachitamin12/cuda-resnet-18-implementation-2f32240d61ee))**: Architecture, data flow, and kernel design
-- More documentation and articles to come
-
-## Key Learnings
-
-1. **Tensor cores provide massive speedup** - Over 2x improvement by restructuring convolution as matrix multiplication
-2. **Kernel profiling is revealing** - Profiling can explain abstract issues and bottlenecks in real kernels, as well as help compare various implementations
-3. **Algorithmic choice matters** - Switching from direct convolution to implicit GEMM unlocked hardware capabilities
+- **[Tensor Core Optimizations (Medium Post)](https://medium.com/@prachitamin12/part-2-accelerating-cuda-resnet-18-inference-pipeline-with-tensor-cores-745a35458173)**: Overview of Tensor Cores, optimization, and profiling steps.
 
 ## Future Improvements
 
@@ -67,7 +61,7 @@ Detailed documentation is available in the docs and also Medium articles:
 - Improved memory coalescing and prefetching strategies
 - Profile PyTorch implementation to see runtime differences
 
-## Technologies
+## Libraries and Applications
 
 - CUDA C++ with WMMA API for tensor cores
 - OpenCV for image preprocessing

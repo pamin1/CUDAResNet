@@ -177,7 +177,7 @@ __global__ void conv2d_kernel(const float *input, const float *weight, const flo
                 val = (val - bnMean[oc]) / std;
                 val = val * bnWeight[oc] + bnBias[oc];
 
-                // Add residual (if provided)
+                // residual
                 if (residual != nullptr)
                 {
                     int out_idx = oc * outH * outW + out_y * outW + out_x;
